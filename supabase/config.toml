@@ -257,7 +257,7 @@ otp_expiry = 3600
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
-enable_signup = false
+enable_signup = true
 # If enabled, users need to confirm their phone number before signing in.
 enable_confirmations = false
 # Template for sending OTP to users
@@ -267,8 +267,16 @@ max_frequency = "5s"
 
 # Use pre-defined map of phone number to OTP for testing.
 # Keys are the phone number with country code and without the + prefix.
-# [auth.sms.test_otp]
-# 14152127777 = "123456"
+# Code fixe pour le numéro de démonstration de l'espace patient (local uniquement).
+[auth.sms.test_otp]
+224620111111 = "123456"
+
+# Envoi des codes par WhatsApp via l'Edge Function send-sms-hook. Pour l'activer en local :
+# SEND_SMS_HOOK_SECRETS="v1,whsec_..." npx supabase start
+# [auth.hook.send_sms]
+# enabled = true
+# uri = "http://host.docker.internal:54321/functions/v1/send-sms-hook"
+# secrets = "env(SEND_SMS_HOOK_SECRETS)"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
@@ -414,3 +422,13 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Edge Functions authentifiées par leur propre secret (cron, webhook Meta, hook Auth).
+[functions.send-reminders]
+verify_jwt = false
+
+[functions.send-sms-hook]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
