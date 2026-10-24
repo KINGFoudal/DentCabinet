@@ -15,11 +15,17 @@ Prérequis : Node.js 22, Docker.
 
 ```bash
 npm install
-npx supabase start            # base, auth, storage en local (Docker)
+./scripts/setup-local-env.sh  # secret du hook d'envoi des codes
+npx supabase start            # base, auth, storage, Edge Functions en local (Docker)
 npx supabase db reset         # applique les migrations et les données de démonstration
-cp .env.example .env.local    # puis renseigner les clés affichées par `npx supabase status`
+./scripts/setup-local-env.sh  # crée .env.local avec les clés locales
 npm run dev                   # http://localhost:3000
 ```
+
+Espace patient de démonstration : http://localhost:3000/patient, numéro `620 11 11 11`, code `123456`.
+Pour un autre numéro, le code est écrit dans le journal de l'Edge Function `send-sms-hook`
+(`docker logs supabase_edge_runtime_nimba-dentaire`), tant que les clés WhatsApp ne sont pas configurées.
+Les paiements Orange Money / MTN sont simulés (`PAYMENTS_MODE=sandbox`).
 
 Comptes de démonstration (mot de passe `Demo12345`) :
 
@@ -49,7 +55,24 @@ npm run test:db    # tests RLS et synchronisation (Supabase local requis)
    update public.profiles set is_platform_admin = true where id = (select id from auth.users where email = 'vous@exemple.com');
    ```
 
+## Secrets de production
+
+- Next.js (Vercel) : variables de `.env.example`, plus celles des opérateurs de paiement
+  (`ORANGE_MONEY_*`, `MTN_MOMO_*`, `PAYMENTS_MODE=live`, `PAYMENTS_CALLBACK_BASE_URL`), voir `src/lib/payments/`.
+- Edge Functions (`npx supabase secrets set ...`) : `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
+  `WHATSAPP_REMINDER_TEMPLATE`, `WHATSAPP_OTP_TEMPLATE`, `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`,
+  `RESEND_API_KEY`, `EMAIL_FROM`, `REMINDERS_CRON_SECRET`, `SEND_SMS_HOOK_SECRETS`.
+- Auth Supabase : activer le hook « Send SMS » vers la fonction `send-sms-hook`.
+- Vault (rappels planifiés) :
+  ```sql
+  select vault.create_secret('https://<ref>.supabase.co', 'project_url');
+  select vault.create_secret('<même valeur que REMINDERS_CRON_SECRET>', 'reminders_cron_secret');
+  ```
+
 ## Points à valider avant la mise en production
+
+- **MTN a cédé sa filiale guinéenne (Areeba) à l'État fin 2024** : confirmer l'accès à l'API MoMo Guinée,
+  ou passer par un agrégateur local (un adaptateur se branche dans `src/lib/payments/registry.ts`).
 
 - Accès marchand Orange Money et MTN Mobile Money en Guinée (API, environnement de test, webhooks).
 - Modèles WhatsApp Business approuvés par Meta pour les rappels et les codes de connexion.

@@ -271,12 +271,14 @@ max_frequency = "5s"
 [auth.sms.test_otp]
 224620111111 = "123456"
 
-# Envoi des codes par WhatsApp via l'Edge Function send-sms-hook. Pour l'activer en local :
-# SEND_SMS_HOOK_SECRETS="v1,whsec_..." npx supabase start
-# [auth.hook.send_sms]
-# enabled = true
-# uri = "http://host.docker.internal:54321/functions/v1/send-sms-hook"
-# secrets = "env(SEND_SMS_HOOK_SECRETS)"
+# Envoi des codes par WhatsApp via l'Edge Function send-sms-hook.
+# Le secret partagé (format "v1,whsec_<base64>") est lu dans supabase/.env et
+# supabase/functions/.env (non versionnés, voir README). Sans clés WhatsApp, la fonction
+# est en mode simulation et écrit le code dans son journal.
+[auth.hook.send_sms]
+enabled = true
+uri = "http://host.docker.internal:54321/functions/v1/send-sms-hook"
+secrets = "env(SEND_SMS_HOOK_SECRETS)"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
@@ -296,10 +298,12 @@ max_frequency = "5s"
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
+# La CLI n'active la connexion par téléphone que si un fournisseur est déclaré. Twilio n'est
+# jamais appelé : le hook send_sms ci-dessus remplace l'envoi (codes livrés par WhatsApp).
 [auth.sms.twilio]
-enabled = false
-account_sid = ""
-message_service_sid = ""
+enabled = true
+account_sid = "unused-send-sms-hook"
+message_service_sid = "unused-send-sms-hook"
 # DO NOT commit your Twilio auth token to git. Use environment variable substitution instead:
 auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 
