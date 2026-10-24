@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs graphify so the PreToolUse hooks in .claude/settings.json work.
+# Installs graphify (for the PreToolUse hooks in .claude/settings.json) and npm dependencies.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
@@ -21,3 +21,9 @@ fi
 
 # Copies the graphify skill into ~/.claude/skills (idempotent).
 graphify install >/dev/null
+
+# Project dependencies (tests, lint, build).
+if [ -f "$CLAUDE_PROJECT_DIR/package.json" ]; then
+  cd "$CLAUDE_PROJECT_DIR"
+  npm install --no-audit --no-fund
+fi
