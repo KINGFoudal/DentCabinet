@@ -48,6 +48,8 @@ npm run test:db    # tests RLS et synchronisation (Supabase local requis)
 
 ## Déploiement
 
+Procédure complète pas à pas : [`docs/DEPLOIEMENT.md`](docs/DEPLOIEMENT.md).
+
 1. Créer un projet Supabase, puis `npx supabase link --project-ref <ref>` et `npx supabase db push`.
 2. Déployer sur Vercel avec les variables de `.env.example` (la clé service uniquement côté serveur).
 3. Désigner le premier administrateur de la plateforme :
