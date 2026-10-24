@@ -299,14 +299,14 @@ isOneToOne: false
                   ]
                 },"invoices": {
                   Row: {
-                    "cabinet_id": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"due_date": string | null,"id": string,"issue_date": string,"notes": string | null,"number": string | null,"paid_gnf": number,"patient_id": string,"quote_id": string | null,"status": Database["public"]['Enums']["invoice_status"],"total_gnf": number,"updated_at": string
+                    "cabinet_id": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"dentist_id": string | null,"due_date": string | null,"id": string,"issue_date": string,"notes": string | null,"number": string | null,"paid_gnf": number,"patient_id": string,"quote_id": string | null,"status": Database["public"]['Enums']["invoice_status"],"total_gnf": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "cabinet_id": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id": string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
+                    "cabinet_id": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"dentist_id"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id": string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "cabinet_id"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id"?: string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
+                    "cabinet_id"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"dentist_id"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id"?: string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
