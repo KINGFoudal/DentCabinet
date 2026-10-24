@@ -299,14 +299,14 @@ isOneToOne: false
                   ]
                 },"invoices": {
                   Row: {
-                    "cabinet_id": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"due_date": string | null,"id": string,"issue_date": string,"notes": string | null,"number": string | null,"paid_gnf": number,"patient_id": string,"quote_id": string | null,"status": Database["public"]['Enums']["invoice_status"],"total_gnf": number,"updated_at": string
+                    "cabinet_id": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"dentist_id": string | null,"due_date": string | null,"id": string,"issue_date": string,"notes": string | null,"number": string | null,"paid_gnf": number,"patient_id": string,"quote_id": string | null,"status": Database["public"]['Enums']["invoice_status"],"total_gnf": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "cabinet_id": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id": string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
+                    "cabinet_id": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"dentist_id"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id": string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "cabinet_id"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id"?: string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
+                    "cabinet_id"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"dentist_id"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id"?: string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -371,14 +371,14 @@ isOneToOne: false
                   ]
                 },"notification_log": {
                   Row: {
-                    "appointment_id": string | null,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at": string,"error": string | null,"id": string,"kind": Database["public"]['Enums']["message_kind"],"patient_id": string | null,"provider_message_id": string | null,"recipient": string,"sent_at": string | null,"status": Database["public"]['Enums']["message_status"],"updated_at": string
+                    "appointment_id": string | null,"attempts": number,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at": string,"error": string | null,"id": string,"kind": Database["public"]['Enums']["message_kind"],"patient_id": string | null,"provider_message_id": string | null,"recipient": string,"sent_at": string | null,"status": Database["public"]['Enums']["message_status"],"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "appointment_id"?: string | null,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at"?: string,"error"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["message_kind"],"patient_id"?: string | null,"provider_message_id"?: string | null,"recipient": string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"updated_at"?: string
+                    "appointment_id"?: string | null,"attempts"?: number,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at"?: string,"error"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["message_kind"],"patient_id"?: string | null,"provider_message_id"?: string | null,"recipient": string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"updated_at"?: string
                   }
                   Update: {
-                    "appointment_id"?: string | null,"cabinet_id"?: string,"channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"error"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["message_kind"],"patient_id"?: string | null,"provider_message_id"?: string | null,"recipient"?: string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"updated_at"?: string
+                    "appointment_id"?: string | null,"attempts"?: number,"cabinet_id"?: string,"channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"error"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["message_kind"],"patient_id"?: string | null,"provider_message_id"?: string | null,"recipient"?: string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -473,16 +473,36 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"payment_transactions": {
+                },"payment_transaction_secrets": {
                   Row: {
-                    "amount_gnf": number,"cabinet_id": string,"created_at": string,"expires_at": string,"failure_reason": string | null,"id": string,"initiated_by": string | null,"invoice_id": string | null,"payer_phone": string,"provider": Database["public"]['Enums']["payment_provider"],"provider_reference": string | null,"purpose": Database["public"]['Enums']["payment_purpose"],"raw": Json | null,"status": Database["public"]['Enums']["payment_status"],"subscription_cycle": Database["public"]['Enums']["billing_cycle"] | null,"updated_at": string
+                    "created_at": string,"secret": string,"transaction_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount_gnf": number,"cabinet_id": string,"created_at"?: string,"expires_at"?: string,"failure_reason"?: string | null,"id"?: string,"initiated_by"?: string | null,"invoice_id"?: string | null,"payer_phone": string,"provider": Database["public"]['Enums']["payment_provider"],"provider_reference"?: string | null,"purpose": Database["public"]['Enums']["payment_purpose"],"raw"?: Json | null,"status"?: Database["public"]['Enums']["payment_status"],"subscription_cycle"?: Database["public"]['Enums']["billing_cycle"] | null,"updated_at"?: string
+                    "created_at"?: string,"secret": string,"transaction_id": string
                   }
                   Update: {
-                    "amount_gnf"?: number,"cabinet_id"?: string,"created_at"?: string,"expires_at"?: string,"failure_reason"?: string | null,"id"?: string,"initiated_by"?: string | null,"invoice_id"?: string | null,"payer_phone"?: string,"provider"?: Database["public"]['Enums']["payment_provider"],"provider_reference"?: string | null,"purpose"?: Database["public"]['Enums']["payment_purpose"],"raw"?: Json | null,"status"?: Database["public"]['Enums']["payment_status"],"subscription_cycle"?: Database["public"]['Enums']["billing_cycle"] | null,"updated_at"?: string
+                    "created_at"?: string,"secret"?: string,"transaction_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "payment_transaction_secrets_transaction_id_fkey"
+      columns: ["transaction_id"]
+isOneToOne: true
+      referencedRelation: "payment_transactions"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"payment_transactions": {
+                  Row: {
+                    "amount_gnf": number,"cabinet_id": string,"completed_at": string | null,"created_at": string,"dentist_count": number | null,"expires_at": string,"failure_reason": string | null,"id": string,"initiated_by": string | null,"invoice_id": string | null,"payer_phone": string,"plan_id": string | null,"provider": Database["public"]['Enums']["payment_provider"],"provider_reference": string | null,"purpose": Database["public"]['Enums']["payment_purpose"],"raw": Json | null,"status": Database["public"]['Enums']["payment_status"],"subscription_cycle": Database["public"]['Enums']["billing_cycle"] | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount_gnf": number,"cabinet_id": string,"completed_at"?: string | null,"created_at"?: string,"dentist_count"?: number | null,"expires_at"?: string,"failure_reason"?: string | null,"id"?: string,"initiated_by"?: string | null,"invoice_id"?: string | null,"payer_phone": string,"plan_id"?: string | null,"provider": Database["public"]['Enums']["payment_provider"],"provider_reference"?: string | null,"purpose": Database["public"]['Enums']["payment_purpose"],"raw"?: Json | null,"status"?: Database["public"]['Enums']["payment_status"],"subscription_cycle"?: Database["public"]['Enums']["billing_cycle"] | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "amount_gnf"?: number,"cabinet_id"?: string,"completed_at"?: string | null,"created_at"?: string,"dentist_count"?: number | null,"expires_at"?: string,"failure_reason"?: string | null,"id"?: string,"initiated_by"?: string | null,"invoice_id"?: string | null,"payer_phone"?: string,"plan_id"?: string | null,"provider"?: Database["public"]['Enums']["payment_provider"],"provider_reference"?: string | null,"purpose"?: Database["public"]['Enums']["payment_purpose"],"raw"?: Json | null,"status"?: Database["public"]['Enums']["payment_status"],"subscription_cycle"?: Database["public"]['Enums']["billing_cycle"] | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -496,6 +516,12 @@ isOneToOne: false
       columns: ["invoice_id"]
 isOneToOne: false
       referencedRelation: "invoices"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payment_transactions_plan_id_fkey"
+      columns: ["plan_id"]
+isOneToOne: false
+      referencedRelation: "plans"
       referencedColumns: ["id"]
     }
                   ]
@@ -817,6 +843,14 @@ isOneToOne: false
 "active_dentist_count":
 { Args: { "p_cabinet": string }; Returns: number
                            },
+"admin_cabinets":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "active_dentists": number,"billing_cycle": Database["public"]['Enums']["billing_cycle"],"city": string,"created_at": string,"current_period_end": string,"email": string,"id": string,"last_payment_at": string,"last_payment_gnf": number,"members": number,"name": string,"phone": string,"plan_code": string,"plan_id": string,"slug": string,"subscription_status": Database["public"]['Enums']["subscription_status"],"trial_ends_at": string
+            }[]
+                           },
+"admin_metrics":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "available_slots":
 { Args: { "p_date": string,"p_dentist"?: string,"p_slug": string,"p_type": string }; Returns: {
               "ends_at": string,"starts_at": string
@@ -828,8 +862,14 @@ isOneToOne: false
 "cancel_online":
 { Args: { "p_appointment": string }; Returns: undefined
                            },
+"complete_transaction":
+{ Args: { "p_failure_reason"?: string,"p_provider_reference"?: string,"p_raw"?: Json,"p_status": Database["public"]['Enums']["payment_status"],"p_transaction": string }; Returns: Database["public"]['Enums']["payment_status"]
+                           },
 "create_cabinet":
 { Args: { "p_city"?: string,"p_is_dentist"?: boolean,"p_name": string,"p_phone"?: string,"p_slug": string }; Returns: string
+                           },
+"expire_subscriptions":
+{ Args: Record<PropertyKey, never>; Returns: number
                            },
 "link_portal_patients":
 { Args: Record<PropertyKey, never>; Returns: number
