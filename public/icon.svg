@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0f766e"/>
+  <!-- Dent stylisée dont le sommet dessine une montagne (mont Nimba). -->
+  <path d="M136 196c0-50 38-84 86-84 16 0 26 6 34 10l34-38 34 38c8-4 18-10 34-10 48 0 86 34 86 84 0 46-22 74-34 120-12 46-14 104-46 104-30 0-30-70-56-98-6-6-14-10-18-10s-12 4-18 10c-26 28-26 98-56 98-32 0-34-58-46-104-12-46-34-74-34-120z" fill="#ffffff"/>
+  <path d="M200 196l56-62 56 62" fill="none" stroke="#14b8a6" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="368" cy="138" r="18" fill="#f59e0b"/>
+</svg>

@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* Identité visuelle Nimba Dentaire (voir PROMPT.md). */
+:root {
+  --primary: #0f766e;
+  --primary-hover: #115e59;
+  --primary-light: #14b8a6;
+  --primary-soft: #f0fdfa;
+  --on-primary: #ffffff;
+  --accent: #f59e0b;
+  --on-accent: #0f172a;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --border: #e2e8f0;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --info: #2563eb;
+  --info-soft: #eff6ff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #14b8a6;
+    --primary-hover: #2dd4bf;
+    --primary-light: #5eead4;
+    --primary-soft: #042f2e;
+    --on-primary: #042f2e;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --border: #1e293b;
+    --background: #020617;
+    --surface: #0f172a;
+    --success-soft: #052e16;
+    --warning-soft: #422006;
+    --danger-soft: #450a0a;
+    --info-soft: #172554;
+  }
+}
+
+:root[data-theme="dark"] {
+  --primary: #14b8a6;
+  --primary-hover: #2dd4bf;
+  --primary-light: #5eead4;
+  --primary-soft: #042f2e;
+  --on-primary: #042f2e;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --border: #1e293b;
+  --background: #020617;
+  --surface: #0f172a;
+  --success-soft: #052e16;
+  --warning-soft: #422006;
+  --danger-soft: #450a0a;
+  --info-soft: #172554;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  body { background: #fff; color: #000; }
+  .no-print { display: none !important; }
+}
