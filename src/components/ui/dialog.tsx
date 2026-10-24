@@ -28,6 +28,11 @@ export function Dialog({
     if (!d) return;
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
+    // Avec cacheComponents, la page quittée reste montée (masquée) : une modale ouverte
+    // bloquerait alors les clics de la page suivante.
+    return () => {
+      if (d.open) d.close();
+    };
   }, [open]);
 
   const widths = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };

@@ -12,6 +12,15 @@ export const OFFLINE_ROUTES = [
   "/app/facturation",
   "/app/facturation/facture",
   "/app/facturation/devis",
+  "/app/facturation/recu",
+  "/app/patients/ordonnance",
+  "/app/rapports",
+  "/app/parametres",
+  "/app/parametres/actes",
+  "/app/parametres/cabinet",
+  "/app/parametres/equipe",
+  "/app/abonnement",
+  "/app/menu",
 ];
 
 export function ServiceWorker() {
