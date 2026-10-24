@@ -1108,17 +1108,18 @@ declare
 begin
   foreach t in array array['clinical_notes', 'tooth_records', 'treatment_plans', 'treatment_plan_items'] loop
     execute format('create policy %I on public.%I for select using (app.has_role(cabinet_id, ''{dentist}''))', t || '_read', t);
-    execute format('create policy %I on public.%I for insert with check (app.can_write(cabinet_id, ''{dentist}''))', t || '_insert', t);
-    execute format('create policy %I on public.%I for update using (app.has_role(cabinet_id, ''{dentist}'')) with check (app.can_write(cabinet_id, ''{dentist}''))', t || '_update', t);
+    -- clinical_notes a ses propres règles d'écriture (ci-dessous).
+    if t <> 'clinical_notes' then
+      execute format('create policy %I on public.%I for insert with check (app.can_write(cabinet_id, ''{dentist}''))', t || '_insert', t);
+      execute format('create policy %I on public.%I for update using (app.has_role(cabinet_id, ''{dentist}'')) with check (app.can_write(cabinet_id, ''{dentist}''))', t || '_update', t);
+    end if;
   end loop;
 end $$;
 
 -- Seul l'auteur modifie sa note.
-drop policy clinical_notes_update on public.clinical_notes;
 create policy clinical_notes_update on public.clinical_notes for update
   using (author_id = auth.uid() and app.has_role(cabinet_id, '{dentist}'))
   with check (author_id = auth.uid() and app.can_write(cabinet_id, '{dentist}'));
-drop policy clinical_notes_insert on public.clinical_notes;
 create policy clinical_notes_insert on public.clinical_notes for insert
   with check (author_id = auth.uid() and app.can_write(cabinet_id, '{dentist}'));
 
