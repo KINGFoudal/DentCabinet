@@ -371,14 +371,14 @@ isOneToOne: false
                   ]
                 },"notification_log": {
                   Row: {
-                    "appointment_id": string | null,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at": string,"error": string | null,"id": string,"kind": Database["public"]['Enums']["message_kind"],"patient_id": string | null,"provider_message_id": string | null,"recipient": string,"sent_at": string | null,"status": Database["public"]['Enums']["message_status"],"updated_at": string
+                    "appointment_id": string | null,"attempts": number,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at": string,"error": string | null,"id": string,"kind": Database["public"]['Enums']["message_kind"],"patient_id": string | null,"provider_message_id": string | null,"recipient": string,"sent_at": string | null,"status": Database["public"]['Enums']["message_status"],"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "appointment_id"?: string | null,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at"?: string,"error"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["message_kind"],"patient_id"?: string | null,"provider_message_id"?: string | null,"recipient": string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"updated_at"?: string
+                    "appointment_id"?: string | null,"attempts"?: number,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at"?: string,"error"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["message_kind"],"patient_id"?: string | null,"provider_message_id"?: string | null,"recipient": string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"updated_at"?: string
                   }
                   Update: {
-                    "appointment_id"?: string | null,"cabinet_id"?: string,"channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"error"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["message_kind"],"patient_id"?: string | null,"provider_message_id"?: string | null,"recipient"?: string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"updated_at"?: string
+                    "appointment_id"?: string | null,"attempts"?: number,"cabinet_id"?: string,"channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"error"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["message_kind"],"patient_id"?: string | null,"provider_message_id"?: string | null,"recipient"?: string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"updated_at"?: string
                   }
                   Relationships: [
                     {
