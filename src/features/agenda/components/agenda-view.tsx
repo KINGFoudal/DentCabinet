@@ -213,7 +213,8 @@ export function AgendaView() {
   const title = (() => {
     const fmt = (opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { ...opts, timeZone: "UTC" });
     const d = new Date(`${date}T00:00:00Z`);
-    if (effectiveView === "day") return fmt({ weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(d);
+    if (effectiveView === "day")
+      return fmt(isMobile ? { weekday: "short", day: "numeric", month: "short" } : { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(d);
     if (effectiveView === "month") return fmt({ month: "long", year: "numeric" }).format(d);
     const first = new Date(`${days[0]}T00:00:00Z`);
     const last = new Date(`${days[6]}T00:00:00Z`);
@@ -251,7 +252,7 @@ export function AgendaView() {
               <ChevronRight className="size-4" />
             </Button>
           </div>
-          <label className="relative min-w-0 flex-1 truncate font-medium capitalize">
+          <label className="relative min-w-0 flex-1 truncate font-medium first-letter:uppercase">
             {title}
             <input
               type="date"
@@ -280,7 +281,7 @@ export function AgendaView() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Select aria-label={t("agenda.dentist")} value={filterId} onChange={(e) => setDentistFilter(e.target.value)} className="h-9 w-auto max-w-56">
+          <Select aria-label={t("agenda.dentist")} value={filterId} onChange={(e) => setDentistFilter(e.target.value)} className="h-9 max-w-56">
             <option value="">{t("agenda.allDentists")}</option>
             {dentists.map((d) => (
               <option key={d.id} value={d.id}>
@@ -289,7 +290,7 @@ export function AgendaView() {
             ))}
           </Select>
           {effectiveView === "day" && !isMobile && (
-            <Select aria-label={t("agenda.columns.label")} value={mode} onChange={(e) => setMode(e.target.value as (typeof MODES)[number])} className="h-9 w-auto">
+            <Select aria-label={t("agenda.columns.label")} value={mode} onChange={(e) => setMode(e.target.value as (typeof MODES)[number])} className="h-9 max-w-44">
               <option value="dentist">{t("agenda.columns.dentist")}</option>
               <option value="chair">{t("agenda.columns.chair")}</option>
             </Select>

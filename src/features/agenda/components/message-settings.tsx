@@ -71,7 +71,8 @@ function TemplatesList() {
   const { t, locale } = useI18n();
   const cabinetId = useCabinetId();
   const { can } = useCabinet();
-  const [editing, setEditing] = useState<Template | "new" | null>(null);
+  type Preset = { kind: string; channel: string; locale: string };
+  const [editing, setEditing] = useState<{ template: Template | null; preset?: Preset } | null>(null);
   const templates = useLiveQuery(
     async () => (await localDb().message_templates.where("cabinet_id").equals(cabinetId).toArray()).filter((x) => !x.deleted_at && x.kind !== "otp"),
     [cabinetId],
@@ -84,7 +85,7 @@ function TemplatesList() {
     <div className="flex flex-col gap-4">
       {can.settingsWrite && (
         <div>
-          <Button onClick={() => setEditing("new")}>
+          <Button onClick={() => setEditing({ template: null })}>
             <Plus className="size-4" />
             {t("agenda.templates.add")}
           </Button>
@@ -113,9 +114,13 @@ function TemplatesList() {
                         <p className="mt-1 text-sm text-muted">{t("agenda.templates.missing")}</p>
                       )}
                     </div>
-                    {can.settingsWrite && tpl && (
-                      <Button size="sm" variant="secondary" onClick={() => setEditing(tpl)}>
-                        {t("common.edit")}
+                    {can.settingsWrite && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setEditing(tpl ? { template: tpl } : { template: null, preset: { kind, channel, locale: loc } })}
+                      >
+                        {tpl ? t("common.edit") : t("common.add")}
                       </Button>
                     )}
                   </li>
@@ -125,20 +130,38 @@ function TemplatesList() {
           </ul>
         </Card>
       ))}
-      <Dialog open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? t("agenda.templates.add") : t("agenda.templates.edit")} size="lg">
-        {editing && <TemplateForm key={editing === "new" ? "new" : editing.id} template={editing === "new" ? null : editing} existing={templates} onDone={() => setEditing(null)} />}
+      <Dialog open={!!editing} onClose={() => setEditing(null)} title={editing?.template ? t("agenda.templates.edit") : t("agenda.templates.add")} size="lg">
+        {editing && (
+          <TemplateForm
+            key={editing.template?.id ?? "new"}
+            template={editing.template}
+            preset={editing.preset}
+            existing={templates}
+            onDone={() => setEditing(null)}
+          />
+        )}
       </Dialog>
     </div>
   );
 }
 
-function TemplateForm({ template, existing, onDone }: { template: Template | null; existing: Template[]; onDone: () => void }) {
+function TemplateForm({
+  template,
+  preset,
+  existing,
+  onDone,
+}: {
+  template: Template | null;
+  preset?: { kind: string; channel: string; locale: string };
+  existing: Template[];
+  onDone: () => void;
+}) {
   const { t } = useI18n();
   const cabinetId = useCabinetId();
   const toast = useToast();
-  const [kind, setKind] = useState<string>(template?.kind ?? "reminder_day_before");
-  const [channel, setChannel] = useState<string>(template?.channel ?? "whatsapp");
-  const [loc, setLoc] = useState<string>(template?.locale ?? "fr");
+  const [kind, setKind] = useState<string>(template?.kind ?? preset?.kind ?? "reminder_day_before");
+  const [channel, setChannel] = useState<string>(template?.channel ?? preset?.channel ?? "whatsapp");
+  const [loc, setLoc] = useState<string>(template?.locale ?? preset?.locale ?? "fr");
   const [subject, setSubject] = useState(template?.subject ?? "");
   const [body, setBody] = useState((template?.body ?? "").replace(/\\n/g, "\n"));
   const [enabled, setEnabled] = useState(template?.enabled ?? true);
@@ -312,7 +335,7 @@ function NotificationLog() {
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-        <Select aria-label={t("agenda.log.statusLabel")} value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 w-auto">
+        <Select aria-label={t("agenda.log.statusLabel")} value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 max-w-48">
           <option value="">{t("agenda.log.allStatuses")}</option>
           {(["queued", "sent", "delivered", "read", "failed"] as const).map((s) => (
             <option key={s} value={s}>
@@ -320,7 +343,7 @@ function NotificationLog() {
             </option>
           ))}
         </Select>
-        <Select aria-label={t("agenda.templates.channelLabel")} value={channel} onChange={(e) => setChannel(e.target.value)} className="h-9 w-auto">
+        <Select aria-label={t("agenda.templates.channelLabel")} value={channel} onChange={(e) => setChannel(e.target.value)} className="h-9 max-w-48">
           <option value="">{t("agenda.log.allChannels")}</option>
           {CHANNELS.map((c) => (
             <option key={c} value={c}>

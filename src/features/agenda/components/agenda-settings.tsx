@@ -339,7 +339,7 @@ function SchedulesEditor() {
         title={
           <span className="flex flex-wrap items-center gap-2">
             {t("agenda.settings.schedulesFor")}
-            <Select aria-label={t("agenda.dentist")} value={dentistId} onChange={(e) => setSelected(e.target.value)} className="h-9 w-auto" disabled={dentists.length < 2}>
+            <Select aria-label={t("agenda.dentist")} value={dentistId} onChange={(e) => setSelected(e.target.value)} className="h-9 max-w-48" disabled={dentists.length < 2}>
               {dentists.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -377,7 +377,7 @@ function SchedulesEditor() {
                         aria-label={t("agenda.form.start")}
                         defaultValue={hm(r.start_time)}
                         disabled={!writable}
-                        className="w-32"
+                        className="max-w-36"
                         onBlur={async (e) => {
                           if (e.target.value === hm(r.start_time)) return;
                           if (!(await update(r.id, "start_time", e.target.value, hm(r.end_time)))) e.target.value = hm(r.start_time);
@@ -390,7 +390,7 @@ function SchedulesEditor() {
                         aria-label={t("agenda.form.end")}
                         defaultValue={hm(r.end_time)}
                         disabled={!writable}
-                        className="w-32"
+                        className="max-w-36"
                         onBlur={async (e) => {
                           if (e.target.value === hm(r.end_time)) return;
                           if (!(await update(r.id, "end_time", e.target.value, hm(r.start_time)))) e.target.value = hm(r.end_time);
