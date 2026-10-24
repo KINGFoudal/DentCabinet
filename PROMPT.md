@@ -76,7 +76,12 @@ Un utilisateur peut appartenir à plusieurs cabinets (cas d'un dentiste qui exer
 
 ### 5. Abonnement SaaS
 - Inscription d'un nouveau cabinet avec période d'essai.
-- Formules d'abonnement (par exemple selon le nombre de praticiens), configurables par le super-admin.
+- Abonnement **calculé selon le nombre de dentistes actifs** du cabinet. Paliers proposés (prix en GNF configurables par le super-admin, pas codés en dur) :
+  - Solo : 1 dentiste.
+  - Cabinet : 2 à 3 dentistes.
+  - Clinique : 4 dentistes et plus (prix par dentiste supplémentaire).
+- Les secrétaires, assistants et comptables ne comptent pas dans le prix. Ajouter un dentiste au-delà du palier propose le passage au palier supérieur.
+- Paiement mensuel ou annuel (remise annuelle configurable).
 - Paiement de l'abonnement par Orange Money et MTN Mobile Money.
 - Relances avant échéance, mode lecture seule si l'abonnement expire (le cabinet ne perd jamais l'accès à ses données).
 
@@ -97,6 +102,31 @@ Un utilisateur peut appartenir à plusieurs cabinets (cas d'un dentiste qui exer
 - Les données mises en cache hors ligne sur l'appareil sont limitées au nécessaire et effacées à la déconnexion.
 
 ## Interface
+
+### Identité visuelle
+
+Inspirée du mont Nimba (forêt, nature guinéenne) et des codes du soin : rassurante, propre, lisible.
+
+| Rôle | Couleur | Usage |
+|---|---|---|
+| Primaire | `#0F766E` vert Nimba | Boutons principaux, en-têtes, liens. Texte blanc dessus (contraste 5,5:1). |
+| Primaire claire | `#14B8A6` | Survols, éléments décoratifs, fonds légers. Jamais pour du texte sur fond blanc. |
+| Fond primaire | `#F0FDFA` | Fonds de sections, lignes sélectionnées. |
+| Accent | `#F59E0B` or du soleil | Mises en avant ponctuelles (badge, offre). Texte foncé dessus. |
+| Texte | `#0F172A` | Texte principal. |
+| Texte secondaire | `#475569` | Libellés, aides. |
+| Bordures | `#E2E8F0` | Séparateurs, champs. |
+| Fond | `#F8FAFC` | Fond de l'application. |
+| Succès | `#16A34A` | Payé, confirmé. |
+| Avertissement | `#D97706` | En attente, à relancer. |
+| Erreur | `#DC2626` | Impayé, annulé, alerte médicale. |
+| Info | `#2563EB` | Informations, synchronisation en cours. |
+
+- Définir ces couleurs comme variables de thème (Tailwind) avec un mode sombre.
+- Police : Inter (lisible sur petits écrans, bon rendu des chiffres).
+- Logo provisoire : le nom « Nimba Dentaire » en vert primaire avec une dent stylisée dont le sommet évoque une montagne.
+
+### Principes
 
 - Sobre, lisible, pensée pour un usage rapide à l'accueil et au fauteuil.
 - Fonctionne bien sur une tablette Android d'entrée de gamme et sur une connexion 3G : pages légères, images optimisées, pas de dépendances lourdes inutiles.
