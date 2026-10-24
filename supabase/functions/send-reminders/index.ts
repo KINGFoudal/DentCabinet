@@ -27,12 +27,23 @@ const env = (k: string) => Deno.env.get(k);
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-function authorized(req: Request) {
-  const cron = env("REMINDERS_CRON_SECRET");
+async function authorized(req: Request) {
   const service = env("SUPABASE_SERVICE_ROLE_KEY");
   const given = req.headers.get("x-cron-secret");
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  return (!!cron && given === cron) || (!!service && bearer === service);
+  if (service && bearer === service) return true;
+  if (!given) return false;
+  // Secret fourni par l'environnement, sinon celui conservé dans Vault (public.reminders_cron_secret).
+  let cron = env("REMINDERS_CRON_SECRET");
+  if (!cron && service) {
+    const res = await fetch(`${env("SUPABASE_URL")}/rest/v1/rpc/reminders_cron_secret`, {
+      method: "POST",
+      headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    cron = res.ok ? ((await res.json()) as string | null) ?? undefined : undefined;
+  }
+  return !!cron && given === cron;
 }
 
 type CabinetRow = ReminderCabinet & { subscription_status: string; trial_ends_at: string | null };
@@ -50,7 +61,7 @@ async function loadAll<T>(rest: Rest, table: string, select: string, column: str
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
-  if (!authorized(req)) return json({ error: "unauthorized" }, 401);
+  if (!(await authorized(req))) return json({ error: "unauthorized" }, 401);
 
   const input = (await req.json().catch(() => ({}))) as { now?: string; dry_run?: boolean };
   const now = input.now ? new Date(input.now) : new Date();
