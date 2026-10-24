@@ -817,11 +817,28 @@ isOneToOne: false
 "active_dentist_count":
 { Args: { "p_cabinet": string }; Returns: number
                            },
+"available_slots":
+{ Args: { "p_date": string,"p_dentist"?: string,"p_slug": string,"p_type": string }; Returns: {
+              "ends_at": string,"starts_at": string
+            }[]
+                           },
+"book_online":
+{ Args: { "p_dentist"?: string,"p_first_name"?: string,"p_last_name"?: string,"p_slug": string,"p_starts_at": string,"p_type": string }; Returns: Json
+                           },
+"cancel_online":
+{ Args: { "p_appointment": string }; Returns: undefined
+                           },
 "create_cabinet":
 { Args: { "p_city"?: string,"p_is_dentist"?: boolean,"p_name": string,"p_phone"?: string,"p_slug": string }; Returns: string
                            },
+"link_portal_patients":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "log_patient_view":
 { Args: { "p_patient": string }; Returns: undefined
+                           },
+"portal_cabinets":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "public_cabinet":
 { Args: { "p_slug": string }; Returns: Json
