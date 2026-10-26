@@ -39,7 +39,8 @@ Dans Supabase > **Authentication** :
    - Site URL : l'adresse Vercel (étape 5), par exemple `https://nimba-dentaire.vercel.app`
    - Redirect URLs : ajouter `https://nimba-dentaire.vercel.app/**`
 2. **Sign In / Providers > Email** : laisser activé. La confirmation par email est activée par défaut : le nouvel utilisateur clique le lien reçu, se connecte, puis crée son cabinet. L'envoi d'emails intégré de Supabase est très limité en nombre : configurer un SMTP (**Authentication > Emails > SMTP Settings**, par exemple Resend) avant d'ouvrir aux vrais cabinets.
-3. **Sign In / Providers > Phone** : activer (connexion de l'espace patient par code).
+3. **Sign In / Providers > Phone** : activer (connexion de l'espace patient par code). Laisser **Confirm phone** (confirmation du téléphone) activé : sinon une inscription par téléphone et mot de passe marquerait n'importe quel numéro comme vérifié sans code. La base refuse déjà ces comptes pour l'espace patient (migration `20261026020000_security_audit_fixes.sql`), mais le réglage doit rester actif.
+   - **Sign In / Providers > Email** et **Attack Protection** : activer la protection contre les mots de passe divulgués (« Leaked password protection », signalée par les diagnostics de sécurité Supabase ; offre Pro).
 4. **Hooks > Send SMS hook** : activer, type HTTPS, URL `https://kxzqyexqwcuufacmzmbg.supabase.co/functions/v1/send-sms-hook`, puis **générer le secret**. Copiez ce secret (format `v1,whsec_...`) : il sert à l'étape 3. Le code de connexion partira alors par WhatsApp au lieu d'un SMS.
 
 ## 3. Fonctions (rappels, codes WhatsApp)
