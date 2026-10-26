@@ -57,6 +57,3 @@ export function staffName(names: Map<string, string> | undefined, userId: string
   if (!userId) return "—";
   return names?.get(userId) ?? "—";
 }
-
-/** Vrai quand le navigateur est en ligne (rafraîchi sur les événements online/offline). */
-export { useOnline } from "./use-online";

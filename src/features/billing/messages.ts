@@ -149,6 +149,10 @@ export const messages = {
         amountTooHigh: "Le montant dépasse le reste à payer ({balance}).",
         referenceRequired: "Indiquez la référence de la transaction.",
         referenceHint: "Numéro reçu par SMS ou figurant sur l'avis de virement.",
+        quickAmounts: "Montants rapides",
+        quickBalance: "Solde",
+        quickHalf: "Moitié",
+        enterHint: "Entrée pour enregistrer",
       },
       installments: {
         title: "Échéancier",
@@ -436,6 +440,10 @@ export const messages = {
         amountTooHigh: "The amount exceeds the balance due ({balance}).",
         referenceRequired: "Enter the transaction reference.",
         referenceHint: "Number received by SMS or shown on the transfer notice.",
+        quickAmounts: "Quick amounts",
+        quickBalance: "Balance",
+        quickHalf: "Half",
+        enterHint: "Press Enter to save",
       },
       installments: {
         title: "Payment schedule",

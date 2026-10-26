@@ -93,6 +93,10 @@ function RxForm({ patientId, target, onClose }: { patientId: string; target: RxD
       toast(t("patients.rx.saved"));
       onClose();
       if (print) router.push(`/app/patients/ordonnance?id=${row.id}`);
+    } catch (e) {
+      // Écriture locale refusée (IndexedDB plein ou indisponible...) : le dire au lieu de perdre l'ordonnance.
+      console.error("[local write]", e);
+      toast(t("common.error"), "error");
     } finally {
       setSaving(false);
     }

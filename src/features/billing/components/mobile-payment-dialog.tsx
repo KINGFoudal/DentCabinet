@@ -20,6 +20,7 @@ import {
   type MobileStatus,
 } from "../lib/mobile-payment";
 import { useBilling } from "./common";
+import { useOnline } from "@/lib/use-online";
 
 type Phase =
   | { kind: "form" }
@@ -79,19 +80,13 @@ function MobileForm({
   const [amount, setAmount] = useState(() => formatGNF(balance).replace(/\s*GNF$/, ""));
   const [errors, setErrors] = useState<{ phone?: string; amount?: string }>({});
   const [phase, setPhase] = useState<Phase>({ kind: "form" });
-  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  const online = useOnline();
   const stopped = useRef(false);
 
   useEffect(() => {
     stopped.current = false;
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
     return () => {
       stopped.current = true;
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
     };
   }, []);
 

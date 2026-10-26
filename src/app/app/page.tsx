@@ -18,6 +18,7 @@ import { primaryNextStatus, statusTone, type Status } from "@/features/agenda/li
 import { changeStatus } from "@/features/agenda/lib/actions";
 import { useNow } from "@/features/agenda/lib/hooks";
 import type { Appointment } from "@/features/agenda/lib/data";
+import { FinishConsultationButton } from "@/features/patients/components/consultation";
 
 export default function DashboardPage() {
   const cabinetId = useCabinetId();
@@ -127,7 +128,9 @@ export default function DashboardPage() {
           ) : (
             <ul className="divide-y divide-border">
               {upcoming.map((a) => {
-                const next = can.agendaWrite ? primaryNextStatus(a.status) : null;
+                // En soins : le dentiste qui facture termine la consultation (facture + ordonnance).
+                const consult = !!a.patient_id && a.status === "in_treatment" && can.clinicalWrite && can.billingWrite;
+                const next = can.agendaWrite && !consult ? primaryNextStatus(a.status) : null;
                 const type = a.type_id ? data?.types.get(a.type_id) : undefined;
                 return (
                   <li key={a.id} className="flex items-center gap-2 pr-2 text-sm">
@@ -141,8 +144,9 @@ export default function DashboardPage() {
                       <Badge tone={statusTone(a.status)} className="hidden sm:inline-flex">
                         {t(`agenda.status.${a.status}`)}
                       </Badge>
-                      {!next && <ChevronRight className="size-4 shrink-0 text-muted" />}
+                      {!next && !consult && <ChevronRight className="size-4 shrink-0 text-muted" />}
                     </Link>
+                    {consult && a.patient_id && <FinishConsultationButton patientId={a.patient_id} appointmentId={a.id} className="shrink-0 px-2" compact />}
                     {next && (
                       <button
                         type="button"

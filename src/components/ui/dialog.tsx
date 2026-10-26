@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "./cn";
 import { Button } from "./button";
+import { useT } from "@/components/i18n-provider";
 
 /** Fenêtre modale basée sur <dialog> (focus, Échap et accessibilité gérés par le navigateur). */
 export function Dialog({
@@ -22,6 +23,7 @@ export function Dialog({
   size?: "sm" | "md" | "lg" | "xl";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useT();
 
   useEffect(() => {
     const d = ref.current;
@@ -59,7 +61,7 @@ export function Dialog({
         <div className="flex max-h-[85vh] flex-col">
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <h2 className="text-base font-semibold">{title}</h2>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Fermer">
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label={t("common.close")}>
               <X className="size-4" />
             </Button>
           </div>

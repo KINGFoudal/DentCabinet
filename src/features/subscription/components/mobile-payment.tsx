@@ -17,6 +17,9 @@ import {
   type TxStatus,
 } from "@/lib/payments/client";
 import type { ProviderId } from "@/lib/payments/types";
+import { pollPaymentStatus } from "@/lib/payments/poll";
+import { supabase } from "@/lib/supabase/client";
+import { useOnline } from "@/lib/use-online";
 
 type Tracking = {
   id: string;
@@ -29,20 +32,8 @@ type Tracking = {
 const POLL_MS = 4000;
 const POLL_LIMIT_MS = 16 * 60 * 1000;
 
-function useOnline() {
-  const [online, setOnline] = useState(true);
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
-  return online;
-}
+const browserFetch = (input: string, init?: RequestInit) => fetch(input, init);
+const accessToken = async () => (await supabase().auth.getSession()).data.session?.access_token ?? null;
 
 /**
  * Paiement par Orange Money ou MTN MoMo : choix de l'opérateur, numéro, puis suivi du statut
@@ -72,7 +63,6 @@ export function MobilePayment({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tracking, setTracking] = useState<Tracking | null>(resumeId ? { id: resumeId, status: "pending" } : null);
-  const startedAt = useRef(0);
   const finishedRef = useRef(onFinished);
   useEffect(() => {
     finishedRef.current = onFinished;
@@ -101,22 +91,27 @@ export function MobilePayment({
     [locale],
   );
 
-  // Suivi périodique tant que la transaction est en attente.
+  // Suivi périodique tant que la transaction est en attente (suivi partagé avec le portail).
   const trackingId = tracking?.id;
   const pending = tracking?.status === "pending";
   useEffect(() => {
     if (!trackingId || !pending) return;
-    startedAt.current = Date.now();
-    const first = setTimeout(() => void check(trackingId), 0);
-    const timer = setInterval(() => {
-      if (Date.now() - startedAt.current > POLL_LIMIT_MS) return clearInterval(timer);
-      if (navigator.onLine) void check(trackingId);
-    }, POLL_MS);
-    return () => {
-      clearTimeout(first);
-      clearInterval(timer);
-    };
-  }, [trackingId, pending, check]);
+    const ctrl = new AbortController();
+    void pollPaymentStatus({
+      fetchFn: browserFetch,
+      token: accessToken,
+      id: trackingId,
+      intervalMs: POLL_MS,
+      timeoutMs: POLL_LIMIT_MS,
+      immediate: true,
+      signal: ctrl.signal,
+    }).then((final) => {
+      if (final === "aborted" || final === "timeout") return;
+      setTracking((tr) => (tr && tr.id === trackingId ? { ...tr, status: final } : tr));
+      finishedRef.current?.(final);
+    });
+    return () => ctrl.abort();
+  }, [trackingId, pending]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

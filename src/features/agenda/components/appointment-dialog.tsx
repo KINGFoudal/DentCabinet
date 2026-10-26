@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { TimeSelect } from "@/components/ui/time-select";
 import { useToast } from "@/components/ui/toast";
 import { PatientPicker } from "@/features/patients/components/patient-picker";
+import { FinishConsultationButton } from "@/features/patients/components/consultation";
 import {
   availabilityWarnings,
   durationOptions,
@@ -30,9 +31,10 @@ import {
   nextStatuses,
   primaryNextStatus,
   statusTone,
+  type Conflict,
   type Status,
 } from "../lib/grid";
-import { appointmentLabel, useAppointmentTypes, useAvailability, useChairs, useDentists, type Appointment } from "../lib/data";
+import { appointmentLabel, appointmentLabelLocal, useAppointmentTypes, useAvailability, useChairs, useDentists, type Appointment } from "../lib/data";
 import { changeStatus, saveAppointment } from "../lib/actions";
 import { ReminderStatus } from "./reminder-status";
 
@@ -156,6 +158,14 @@ function AppointmentForm({
     setDuration(ty ? ty.duration_minutes : effectiveDuration);
   }
 
+  async function conflictMessage(c: Conflict<Appointment>) {
+    return t(c.reason === "dentist" ? "agenda.form.conflictDentist" : "agenda.form.conflictChair", {
+      from: formatTime(c.appointment.starts_at, locale, tz),
+      to: formatTime(c.appointment.ends_at, locale, tz),
+      who: await appointmentLabelLocal(c.appointment),
+    });
+  }
+
   async function submit() {
     if (saving) return;
     setError(null);
@@ -181,14 +191,7 @@ function AppointmentForm({
         current ?? undefined,
       );
       if (!res.ok) {
-        const c = res.conflicts[0];
-        setError(
-          t(c.reason === "dentist" ? "agenda.form.conflictDentist" : "agenda.form.conflictChair", {
-            from: formatTime(c.appointment.starts_at, locale, tz),
-            to: formatTime(c.appointment.ends_at, locale, tz),
-            who: c.appointment.title ?? "—",
-          }),
-        );
+        setError(await conflictMessage(res.conflicts[0]));
         return;
       }
       toast(appointment ? t("agenda.form.saved") : t("agenda.form.created"));
@@ -202,21 +205,16 @@ function AppointmentForm({
     if (!current) return;
     const res = await changeStatus(cabinetId, current, s);
     if (!res.ok) {
-      const c = res.conflicts[0];
-      toast(
-        t(c.reason === "dentist" ? "agenda.form.conflictDentist" : "agenda.form.conflictChair", {
-          from: formatTime(c.appointment.starts_at, locale, tz),
-          to: formatTime(c.appointment.ends_at, locale, tz),
-          who: c.appointment.title ?? "—",
-        }),
-        "error",
-      );
+      toast(await conflictMessage(res.conflicts[0]), "error");
       return;
     }
     toast(t("agenda.form.statusChanged", { status: t(`agenda.status.${s}`) }), "info");
   }
 
   const disabled = readOnly;
+  // « Terminer la consultation » : RDV avec patient, dentiste pouvant facturer.
+  const canConsult =
+    !!current?.patient_id && can.clinicalWrite && can.billingWrite && current.status !== "cancelled" && current.status !== "no_show";
   const formId = `appointment-${appointment?.id ?? "new"}`;
 
   return (
@@ -236,15 +234,17 @@ function AppointmentForm({
               </Link>
             )}
           </div>
-          {!readOnly && (
+          {(!readOnly || canConsult) && (
             <div className="flex flex-wrap gap-2">
-              {nextStatuses(current.status)
+              {canConsult && current.patient_id && <FinishConsultationButton patientId={current.patient_id} appointmentId={current.id} />}
+              {!readOnly &&
+                nextStatuses(current.status)
                 .sort((a, b) => Number(b === primaryNextStatus(current.status)) - Number(a === primaryNextStatus(current.status)))
                 .map((s) => (
                   <Button
                     key={s}
                     size="sm"
-                    variant={s === primaryNextStatus(current.status) ? "primary" : s === "cancelled" || s === "no_show" ? "ghost" : "secondary"}
+                    variant={s === primaryNextStatus(current.status) && !canConsult ? "primary" : s === "cancelled" || s === "no_show" ? "ghost" : "secondary"}
                     onClick={() => quickStatus(s)}
                   >
                     {t(`agenda.action.${s}`)}

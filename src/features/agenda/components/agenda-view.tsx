@@ -7,7 +7,7 @@ import { localDb } from "@/lib/local/db";
 import { useCabinet, useCabinetId } from "@/lib/cabinet/cabinet-provider";
 import { useI18n } from "@/components/i18n-provider";
 import { todayISO } from "@/lib/dates";
-import { formatTime, fullName } from "@/lib/format";
+import { formatTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Select } from "@/components/ui/input";
 import { PageHeader, PageSpinner } from "@/components/ui/card";
@@ -28,7 +28,7 @@ import {
   type Status,
   type View,
 } from "../lib/grid";
-import { useAppointmentTypes, useAppointmentsInRange, useAvailability, useChairs, useDentists, type Appointment } from "../lib/data";
+import { appointmentLabelLocal, useAppointmentTypes, useAppointmentsInRange, useAvailability, useChairs, useDentists, type Appointment } from "../lib/data";
 import { changeStatus, saveAppointment } from "../lib/actions";
 import { useIsMobile, useNow, usePersistentState } from "../lib/hooks";
 import { TimeGrid, type GridColumn } from "./time-grid";
@@ -224,7 +224,7 @@ export function AgendaView() {
     const res = await saveAppointment(cabinetId, patch, a);
     if (!res.ok) {
       const c = res.conflicts[0];
-      const who = (c.appointment.patient_id && data?.patients.get(c.appointment.patient_id)) ? fullName(data.patients.get(c.appointment.patient_id)) : (c.appointment.title ?? "—");
+      const who = await appointmentLabelLocal(c.appointment);
       toast(
         t(c.reason === "dentist" ? "agenda.form.conflictDentist" : "agenda.form.conflictChair", {
           from: formatTime(c.appointment.starts_at, locale, tz),

@@ -32,19 +32,28 @@ export function FinishConsultationButton({
   appointmentId,
   size = "sm",
   className,
+  compact,
 }: {
   patientId: string;
   appointmentId?: string | null;
   size?: "sm" | "md";
   className?: string;
+  /** Icône seule sur téléphone (liste serrée), libellé à partir de sm. */
+  compact?: boolean;
 }) {
   const { t } = useI18n();
   const { can } = useCabinet();
   if (!can.clinicalWrite || !can.billingWrite) return null;
+  const label = t("patients.consult.action");
   return (
-    <Link href={consultationHref(patientId, appointmentId)} className={buttonClass("primary", size, className)}>
-      <Stethoscope className="size-4" />
-      {t("patients.consult.action")}
+    <Link
+      href={consultationHref(patientId, appointmentId)}
+      className={buttonClass("primary", size, className)}
+      aria-label={compact ? label : undefined}
+      title={compact ? label : undefined}
+    >
+      <Stethoscope className="size-4 shrink-0" />
+      {compact ? <span className="hidden sm:inline">{label}</span> : label}
     </Link>
   );
 }

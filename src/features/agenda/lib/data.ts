@@ -94,6 +94,12 @@ export function appointmentLabel(a: Appointment, patients: Map<string, Row<"pati
   return (p && fullName(p)) || a.title || "—";
 }
 
+/** Libellé d'un RDV lu dans la base locale (ex. RDV en conflit hors de la plage affichée). */
+export async function appointmentLabelLocal(a: Appointment) {
+  const p = a.patient_id ? await localDb().patients.get(a.patient_id) : undefined;
+  return appointmentLabel(a, new Map(p ? [[p.id, p]] : []));
+}
+
 /** Vérification de chevauchement dans la base locale, avant toute écriture. */
 export async function localConflicts(cabinetId: string, candidate: Slot) {
   const db = localDb();

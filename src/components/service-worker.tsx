@@ -14,6 +14,8 @@ export const OFFLINE_ROUTES = [
   "/app/facturation/devis",
   "/app/facturation/recu",
   "/app/patients/ordonnance",
+  "/app/patients/consultation",
+  "/app/patients/impression",
   "/app/rapports",
   "/app/parametres",
   "/app/parametres/actes",
