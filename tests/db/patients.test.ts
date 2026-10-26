@@ -199,9 +199,10 @@ describe("documents", () => {
       ),
     ).rejects.toThrow(/row-level security/);
     expect(
-      await count(assistant.id, `insert into public.documents (cabinet_id, patient_id, kind, title, storage_path) values ($1, $2, 'administrative', 'A', 'y')`, [
+      await count(assistant.id, `insert into public.documents (cabinet_id, patient_id, kind, title, storage_path) values ($1, $2, 'administrative', 'A', $3)`, [
         cab,
         patient,
+        `${cab}/${patient}/y`,
       ]),
     ).toBe(1);
   });

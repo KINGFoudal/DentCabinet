@@ -83,22 +83,22 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "appointments_chair_id_fkey"
-      columns: ["chair_id"]
+      columns: ["chair_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "chairs"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "appointments_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "appointments_type_id_fkey"
-      columns: ["type_id"]
+      columns: ["type_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "appointment_types"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"audit_log": {
@@ -195,10 +195,10 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "clinical_notes_appointment_id_fkey"
-      columns: ["appointment_id"]
+      columns: ["appointment_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "appointments"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "clinical_notes_cabinet_id_fkey"
       columns: ["cabinet_id"]
@@ -207,10 +207,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "clinical_notes_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"documents": {
@@ -233,10 +233,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "documents_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"invitations": {
@@ -273,10 +273,10 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "invoice_items_act_id_fkey"
-      columns: ["act_id"]
+      columns: ["act_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "acts"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "invoice_items_cabinet_id_fkey"
       columns: ["cabinet_id"]
@@ -285,16 +285,16 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "invoice_items_invoice_id_fkey"
-      columns: ["invoice_id"]
+      columns: ["invoice_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "invoices"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "invoice_items_plan_item_id_fkey"
-      columns: ["plan_item_id"]
+      columns: ["plan_item_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "treatment_plan_items"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"invoices": {
@@ -317,16 +317,16 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "invoices_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "invoices_quote_id_fkey"
-      columns: ["quote_id"]
+      columns: ["quote_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "quotes"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"memberships": {
@@ -383,10 +383,10 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "notification_log_appointment_id_fkey"
-      columns: ["appointment_id"]
+      columns: ["appointment_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "appointments"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "notification_log_cabinet_id_fkey"
       columns: ["cabinet_id"]
@@ -395,10 +395,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "notification_log_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"patient_medical": {
@@ -421,10 +421,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "patient_medical_patient_id_fkey"
-      columns: ["patient_id"]
-isOneToOne: true
+      columns: ["patient_id","cabinet_id"]
+isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"patients": {
@@ -467,10 +467,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "payment_installments_invoice_id_fkey"
-      columns: ["invoice_id"]
+      columns: ["invoice_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "invoices"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"payment_transaction_secrets": {
@@ -513,10 +513,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "payment_transactions_invoice_id_fkey"
-      columns: ["invoice_id"]
+      columns: ["invoice_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "invoices"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "payment_transactions_plan_id_fkey"
       columns: ["plan_id"]
@@ -545,16 +545,16 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "payments_invoice_id_fkey"
-      columns: ["invoice_id"]
+      columns: ["invoice_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "invoices"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "payments_transaction_id_fkey"
-      columns: ["transaction_id"]
-isOneToOne: true
+      columns: ["transaction_id","cabinet_id"]
+isOneToOne: false
       referencedRelation: "payment_transactions"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"plans": {
@@ -611,10 +611,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "prescriptions_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"profiles": {
@@ -645,10 +645,10 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "quote_items_act_id_fkey"
-      columns: ["act_id"]
+      columns: ["act_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "acts"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "quote_items_cabinet_id_fkey"
       columns: ["cabinet_id"]
@@ -657,10 +657,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "quote_items_quote_id_fkey"
-      columns: ["quote_id"]
+      columns: ["quote_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "quotes"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"quotes": {
@@ -683,16 +683,16 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "quotes_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "quotes_plan_id_fkey"
-      columns: ["plan_id"]
+      columns: ["plan_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "treatment_plans"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"subscription_payments": {
@@ -721,10 +721,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "subscription_payments_transaction_id_fkey"
-      columns: ["transaction_id"]
-isOneToOne: true
+      columns: ["transaction_id","cabinet_id"]
+isOneToOne: false
       referencedRelation: "payment_transactions"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"time_off": {
@@ -767,10 +767,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "tooth_records_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"treatment_plan_items": {
@@ -787,10 +787,10 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "treatment_plan_items_act_id_fkey"
-      columns: ["act_id"]
+      columns: ["act_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "acts"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "treatment_plan_items_cabinet_id_fkey"
       columns: ["cabinet_id"]
@@ -799,10 +799,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "treatment_plan_items_plan_id_fkey"
-      columns: ["plan_id"]
+      columns: ["plan_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "treatment_plans"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 },"treatment_plans": {
@@ -825,10 +825,10 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "treatment_plans_patient_id_fkey"
-      columns: ["patient_id"]
+      columns: ["patient_id","cabinet_id"]
 isOneToOne: false
       referencedRelation: "patients"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","cabinet_id"]
     }
                   ]
                 }
@@ -882,6 +882,9 @@ isOneToOne: false
                            },
 "public_cabinet":
 { Args: { "p_slug": string }; Returns: Json
+                           },
+"reminders_cron_secret":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "subscription_price":
 { Args: { "p_cycle": Database["public"]['Enums']["billing_cycle"],"p_dentists": number }; Returns: {
