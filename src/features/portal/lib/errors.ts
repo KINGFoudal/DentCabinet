@@ -34,3 +34,24 @@ export function errorKey(err: ErrLike, online = typeof navigator === "undefined"
     return "portal.errors.offline";
   return "portal.errors.generic";
 }
+
+/**
+ * Clé de traduction pour une erreur de connexion par code (Supabase Auth).
+ * `step` : « send » (demande du code) ou « verify » (saisie du code).
+ * Supabase ne distingue pas un code faux d'un code expiré (otp_expired dans les deux cas).
+ */
+export function loginErrorKey(err: ErrLike, step: "send" | "verify", online = typeof navigator === "undefined" ? true : navigator.onLine): string {
+  if (!online) return "portal.errors.offline";
+  const code = err?.code ?? "";
+  const msg = (err?.message ?? "").toLowerCase();
+  if (err?.status === 429 || code.startsWith("over_") || msg.includes("rate limit") || msg.includes("security purposes"))
+    return "portal.errors.rate_limited";
+  if (code === "otp_expired" || msg.includes("expired") || msg.includes("invalid")) {
+    if (step === "verify") return "portal.login.invalidCode";
+  }
+  if (code === "email_address_invalid" || code === "validation_failed") return "portal.login.invalidEmail";
+  if (code === "email_address_not_authorized") return "portal.errors.email_not_authorized";
+  if (msg.includes("failed to fetch") || msg.includes("networkerror") || msg.includes("network request failed"))
+    return "portal.errors.offline";
+  return step === "send" ? "portal.login.sendFailed" : "portal.login.invalidCode";
+}

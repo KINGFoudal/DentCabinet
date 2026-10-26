@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { errorKey, rpcErrorCode } from "./errors";
+import { errorKey, loginErrorKey, rpcErrorCode } from "./errors";
+import { isPlausibleEmail, portalIdentity } from "./identity";
 import {
   authPhoneToE164,
   canCancelOnline,
@@ -153,5 +154,33 @@ describe("paiements", () => {
     ).toEqual({ ok: false, reason: "offline" });
     expect(safeRedirect("https://pay.example/x")).toBe("https://pay.example/x");
     expect(safeRedirect("http://pay.example/x")).toBeUndefined();
+  });
+});
+
+describe("connexion par code", () => {
+  it("traduit les erreurs de Supabase Auth", () => {
+    expect(loginErrorKey({ code: "otp_expired", message: "Token has expired or is invalid", status: 403 }, "verify", true)).toBe(
+      "portal.login.invalidCode",
+    );
+    expect(loginErrorKey({ code: "over_email_send_rate_limit", message: "email rate limit exceeded", status: 429 }, "send", true)).toBe(
+      "portal.errors.rate_limited",
+    );
+    expect(loginErrorKey({ message: "For security purposes, you can only request this after 42 seconds.", status: 429 }, "send", true)).toBe(
+      "portal.errors.rate_limited",
+    );
+    expect(loginErrorKey({ code: "email_address_invalid", message: "x" }, "send", true)).toBe("portal.login.invalidEmail");
+    expect(loginErrorKey({ code: "email_address_not_authorized", message: "x" }, "send", true)).toBe("portal.errors.email_not_authorized");
+    expect(loginErrorKey({ message: "boom" }, "send", true)).toBe("portal.login.sendFailed");
+    expect(loginErrorKey({ message: "boom" }, "verify", false)).toBe("portal.errors.offline");
+  });
+
+  it("identifie le compte patient par email ou par téléphone", () => {
+    expect(portalIdentity({ email: " Fanta@Example.com ", phone: "" })).toEqual({ kind: "email", value: "fanta@example.com" });
+    expect(portalIdentity({ email: "", phone: "224620000000" })).toEqual({ kind: "phone", value: "+224620000000" });
+    expect(portalIdentity({ email: null, phone: null })).toBeNull();
+    expect(portalIdentity(null)).toBeNull();
+    expect(isPlausibleEmail("a.b@exemple.gn")).toBe(true);
+    expect(isPlausibleEmail("a@b")).toBe(false);
+    expect(isPlausibleEmail("a b@c.com")).toBe(false);
   });
 });
