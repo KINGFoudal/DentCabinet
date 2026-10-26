@@ -17,6 +17,9 @@ import { loadPortalData, type PortalData, type PortalInvoice } from "@/features/
 import { PortalFooter, PortalHeader } from "./portal-header";
 import { AppointmentsSection, BillingSection, DocumentsSection, PrescriptionsSection } from "./portal-sections";
 import { PayDialog } from "./pay-dialog";
+import { useMobilePaymentsAvailable } from "@/lib/payments/availability";
+import { loadOpeningHours } from "@/features/portal/lib/hours";
+import type { OpeningHours, PortalCabinet } from "@/features/portal/lib/types";
 
 type Tab = "appointments" | "billing" | "prescriptions" | "documents";
 type LoadState = { key: string; data: PortalData | null; error: string | null };
@@ -58,6 +61,25 @@ export function usePortalData(userId: string | null) {
   };
 }
 
+/** Horaires des cabinets (page publique), pour le bloc « Payer en espèces au cabinet ». */
+function useOpeningHours(cabinets: PortalCabinet[] | undefined) {
+  const [hours, setHours] = useState<{ key: string; value: Record<string, OpeningHours> }>({ key: "", value: {} });
+  const key = (cabinets ?? []).map((c) => `${c.id}:${c.slug}:${c.public_page_enabled}`).join(",");
+  useEffect(() => {
+    if (!cabinets?.length) return;
+    let cancelled = false;
+    loadOpeningHours(supabase(), cabinets).then(
+      (value) => !cancelled && setHours({ key, value }),
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- relancé seulement quand la liste change (clé)
+  }, [key]);
+  return hours.value;
+}
+
 export function PatientShell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   const { t } = useI18n();
   return (
@@ -78,6 +100,9 @@ export function PatientPortal() {
   const [tab, setTab] = useState<Tab>("appointments");
   const [cabinetFilter, setCabinetFilter] = useState<string>("all");
   const [paying, setPaying] = useState<PortalInvoice | null>(null);
+  // Paiement mobile seulement s'il est configuré (sinon l'API répond 503) ; les espèces au cabinet toujours.
+  const mobile = useMobilePaymentsAvailable() === true;
+  const hours = useOpeningHours(data?.cabinets);
   const identity = portalIdentity(user);
   const phone = identity?.kind === "phone" ? identity.value : null;
   const identityLabel = identity ? (identity.kind === "phone" ? formatPhone(identity.value) : identity.value) : "";
@@ -198,7 +223,7 @@ export function PatientPortal() {
           />
           <div className={cn(loading && "opacity-60")}>
             {view && tab === "appointments" && <AppointmentsSection data={view} lookup={lookup} onChanged={reload} />}
-            {view && tab === "billing" && <BillingSection data={view} lookup={lookup} onPay={setPaying} />}
+            {view && tab === "billing" && <BillingSection data={view} lookup={lookup} onPay={setPaying} mobile={mobile} hours={hours} />}
             {view && tab === "prescriptions" && <PrescriptionsSection data={view} lookup={lookup} />}
             {view && tab === "documents" && <DocumentsSection data={view} lookup={lookup} />}
           </div>

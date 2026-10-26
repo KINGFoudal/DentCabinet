@@ -49,7 +49,8 @@ export async function initiatePayment(fetchFn: FetchFn, token: string, body: Ini
     return { ok: false, reason: "offline" };
   }
   // Route absente (module de paiement non déployé) ou méthode non prise en charge.
-  if (res.status === 404 || res.status === 405 || res.status === 501) return { ok: false, reason: "unavailable" };
+  // 503 payments_not_configured : paiement mobile désactivé sur ce serveur.
+  if (res.status === 404 || res.status === 405 || res.status === 501 || res.status === 503) return { ok: false, reason: "unavailable" };
   const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   if (!res.ok || !data || typeof data.transaction_id !== "string") {
     return { ok: false, reason: "error", message: typeof data?.error === "string" ? data.error : undefined };

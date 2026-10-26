@@ -21,6 +21,7 @@ import { PaymentDialog } from "../components/payment-dialog";
 import { MobilePaymentDialog } from "../components/mobile-payment-dialog";
 import { InstallmentsCard } from "../components/installments-card";
 import { useReportWrite } from "@/lib/sync/report-write";
+import { useMobilePaymentsAvailable } from "@/lib/payments/availability";
 import { LinkedPrescriptions } from "@/features/patients/components/linked-prescriptions";
 
 export default function InvoicePage() {
@@ -73,6 +74,8 @@ function InvoiceDetail({ view }: { view: InvoiceView }) {
   const overdue = allocateInstallments(view.installments, figures.paid, today, figures.total).some((i) => i.state === "overdue");
   const pastDue = open && !!invoice.due_date && invoice.due_date < today;
   const liveItems = view.items.filter((i) => !i.deleted_at);
+  const draftDue = isDraft ? Math.max(0, figures.total - figures.paid) : 0;
+  const mobileAvailable = useMobilePaymentsAvailable();
 
   return (
     <>
@@ -93,28 +96,36 @@ function InvoiceDetail({ view }: { view: InvoiceView }) {
         <div className="flex flex-wrap gap-2">
           {canWrite && isDraft && (
             <>
+              {/* Brouillon : émettre et encaisser en une fois (espèces par défaut). */}
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => (liveItems.length && draftDue > 0 ? setPay(true) : toast(t("billing.confirm.issueEmpty"), "error"))}
+              >
+                <Wallet className="size-4" />
+                {t("billing.actions.issueAndCollect")}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => (liveItems.length ? setConfirm("issue") : toast(t("billing.confirm.issueEmpty"), "error"))}>
+                <Send className="size-4" />
+                {t("billing.actions.issue")}
+              </Button>
               <Button size="sm" variant="secondary" onClick={() => setEditLines(true)}>
                 <Pencil className="size-4" />
                 {t("billing.actions.editLines")}
               </Button>
-              <Button size="sm" onClick={() => (liveItems.length ? setConfirm("issue") : toast(t("billing.confirm.issueEmpty"), "error"))}>
-                <Send className="size-4" />
-                {t("billing.actions.issue")}
-              </Button>
             </>
           )}
           {canWrite && open && figures.balance > 0 && (
-            <>
-              <Button size="sm" onClick={() => setPay(true)}>
-                <Wallet className="size-4" />
-                {/* Déjà payée en partie : « Encaisser le reste (montant) », pré-rempli, espèces par défaut. */}
-                {figures.paid > 0 ? t("billing.actions.collectRest", { amount: gnf(figures.balance) }) : t("billing.actions.recordPayment")}
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setMobile(true)}>
-                <Smartphone className="size-4" />
-                {t("billing.actions.requestMobile")}
-              </Button>
-            </>
+            <Button className="w-full sm:w-auto" onClick={() => setPay(true)}>
+              <Wallet className="size-4" />
+              {/* Déjà payée en partie : « Encaisser le reste (montant) », pré-rempli, espèces par défaut. */}
+              {figures.paid > 0 ? t("billing.actions.collectRest", { amount: gnf(figures.balance) }) : t("billing.actions.collectCounter")}
+            </Button>
+          )}
+          {canWrite && open && figures.balance > 0 && mobileAvailable !== false && (
+            <Button size="sm" variant="secondary" onClick={() => setMobile(true)}>
+              <Smartphone className="size-4" />
+              {t("billing.actions.requestMobile")}
+            </Button>
           )}
           <Button size="sm" variant="secondary" onClick={() => window.print()}>
             <Printer className="size-4" />
@@ -199,7 +210,7 @@ function InvoiceDetail({ view }: { view: InvoiceView }) {
       </div>
 
       <LinesEditorDialog open={editLines} onClose={() => setEditLines(false)} kind="invoice" parentId={invoice.id} items={view.items} />
-      <PaymentDialog open={pay} onClose={() => setPay(false)} invoiceId={invoice.id} balance={figures.balance} />
+      <PaymentDialog open={pay} onClose={() => setPay(false)} invoiceId={invoice.id} balance={isDraft ? draftDue : figures.balance} issueFirst={isDraft} />
       <MobilePaymentDialog
         open={mobile}
         onClose={() => setMobile(false)}

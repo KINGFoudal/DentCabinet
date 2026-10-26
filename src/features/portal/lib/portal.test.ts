@@ -138,6 +138,7 @@ describe("paiements", () => {
 
   it("gère route absente, erreurs et coupure réseau", async () => {
     expect(await initiatePayment(async () => new Response("", { status: 404 }), "t", body)).toEqual({ ok: false, reason: "unavailable" });
+    expect(await initiatePayment(async () => json(503, { error: "payments_not_configured" }), "t", body)).toEqual({ ok: false, reason: "unavailable" });
     expect(await initiatePayment(async () => json(400, { error: "Montant invalide" }), "t", body)).toEqual({
       ok: false,
       reason: "error",

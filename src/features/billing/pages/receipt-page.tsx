@@ -10,6 +10,7 @@ import { formatDateTime, fullName } from "@/lib/format";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState, PageSpinner } from "@/components/ui/card";
 import { buildInvoiceView, useMemberNames } from "../data";
+import { changeDue } from "../lib/cash";
 import { DocNumber, ProvisionalBadge, useBilling } from "../components/common";
 import { MetaLine, PatientBlock, PrintSheet, PrintStyles, TotalRow } from "../components/document";
 
@@ -23,7 +24,10 @@ export default function ReceiptPage() {
 
 /** Reçu de paiement imprimable (/app/facturation/recu?id=<paiement>). */
 function ReceiptScreen() {
-  const id = useSearchParams().get("id");
+  const params = useSearchParams();
+  const id = params.get("id");
+  // Montant remis en espèces (passé par l'encaissement) : imprime la monnaie rendue.
+  const tenderedParam = Number(params.get("recu"));
   const { cabinetId, cabinet, t, gnf, date, locale, tz } = useBilling();
   const names = useMemberNames(cabinetId);
 
@@ -61,6 +65,7 @@ function ReceiptScreen() {
     );
 
   const { payment, view, remainingAfter } = data;
+  const tendered = payment.method === "cash" && Number.isFinite(tenderedParam) && tenderedParam >= payment.amount_gnf ? tenderedParam : null;
   const receiptNo = `${view.invoice.number ?? t("billing.provisionalNumber")}-R${payment.id.slice(0, 6).toUpperCase()}`;
 
   return (
@@ -95,6 +100,16 @@ function ReceiptScreen() {
             {t(`billing.method.${payment.method}`)}
             {payment.reference ? ` · ${t("billing.fields.reference")} ${payment.reference}` : ""}
           </div>
+          {tendered != null && (
+            <div className="mt-2 flex flex-wrap justify-center gap-x-4 text-sm" data-testid="receipt-change">
+              <span>
+                {t("billing.cash.tendered")} : {gnf(tendered)}
+              </span>
+              <span className="font-medium">
+                {t("billing.cash.changeGiven")} : {gnf(changeDue(payment.amount_gnf, tendered))}
+              </span>
+            </div>
+          )}
         </section>
         <section className="mt-4 flex flex-col items-end gap-1 text-sm">
           <TotalRow

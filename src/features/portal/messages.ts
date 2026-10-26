@@ -193,6 +193,14 @@ export const messages = {
           other: "Autre",
         },
       },
+      cash: {
+        title: "Payer en espèces au cabinet",
+        amount: "Montant à régler : {amount}",
+        present: "Présentez ce numéro de facture à l'accueil :",
+        today: "Aujourd'hui",
+        orMobile: "Ou payez à distance :",
+        payMobile: "Payer par Orange Money / MTN",
+      },
       pay: {
         title: "Payer la facture {number}",
         provider: "Moyen de paiement",
@@ -431,6 +439,14 @@ export const messages = {
           transfer: "Bank transfer",
           other: "Other",
         },
+      },
+      cash: {
+        title: "Pay in cash at the practice",
+        amount: "Amount due: {amount}",
+        present: "Show this invoice number at the front desk:",
+        today: "Today",
+        orMobile: "Or pay remotely:",
+        payMobile: "Pay with Orange Money / MTN",
       },
       pay: {
         title: "Pay invoice {number}",

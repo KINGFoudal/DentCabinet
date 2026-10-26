@@ -20,6 +20,7 @@ import { whatsappLink } from "../lib/whatsapp";
 import { DocNumber, Kpi, useBilling } from "../components/common";
 import { InvoiceList, QuoteList } from "../components/document-lists";
 import { NewDocumentDialog } from "../components/new-document-dialog";
+import { useCollectAction } from "../components/collect-action";
 
 type Tab = "factures" | "devis" | "impayes";
 const TABS: Tab[] = ["factures", "devis", "impayes"];
@@ -186,69 +187,74 @@ function BillingScreen() {
 
 function UnpaidList({ views }: { views: InvoiceView[] }) {
   const { t, gnf, date, today, cabinet } = useBilling();
+  const collect = useCollectAction();
   if (!views.length) return <EmptyState icon={<Wallet />} title={t("billing.list.emptyUnpaid")} />;
   return (
-    <ul className="divide-y divide-border">
-      {views.map((v) => {
-        const age = daysBetween(v.invoice.issue_date, today);
-        const allocated = allocateInstallments(v.installments, v.figures.paid, today, v.figures.total);
-        const late = overdueAmount(allocated);
-        const pastDue = !!v.invoice.due_date && v.invoice.due_date < today;
-        const name = v.patient ? fullName(v.patient) : "";
-        const link = whatsappLink(
-          v.patient?.phone,
-          t("billing.whatsapp.reminder", {
-            name: v.patient?.first_name ?? name,
-            number: v.invoice.number ?? "",
-            date: date(v.invoice.issue_date),
-            amount: gnf(v.figures.balance),
-            cabinet: cabinet?.name ?? "",
-          }),
-        );
-        return (
-          <li key={v.invoice.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 ${late > 0 || pastDue ? "bg-danger-soft/60" : ""}`}>
-            <Link href={`/app/facturation/facture?id=${v.invoice.id}`} className="min-w-0 flex-1 hover:underline">
-              <div className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
-                <span className="truncate">{name || "—"}</span>
-                <span className="font-normal text-muted">
-                  <DocNumber number={v.invoice.number} status={v.invoice.status} />
-                </span>
-              </div>
-              <div className="text-xs text-muted">
-                {date(v.invoice.issue_date)} · {t("billing.list.age", { days: age })}
-                {v.patient?.phone ? ` · ${formatPhone(v.patient.phone)}` : ""}
-              </div>
-              {(late > 0 || pastDue) && (
-                <div className="text-xs font-medium text-danger">
-                  {late > 0 ? t("billing.list.overdueAmount", { amount: gnf(late) }) : t("billing.list.pastDue", { date: date(v.invoice.due_date) })}
+    <>
+      <ul className="divide-y divide-border">
+        {views.map((v) => {
+          const age = daysBetween(v.invoice.issue_date, today);
+          const allocated = allocateInstallments(v.installments, v.figures.paid, today, v.figures.total);
+          const late = overdueAmount(allocated);
+          const pastDue = !!v.invoice.due_date && v.invoice.due_date < today;
+          const name = v.patient ? fullName(v.patient) : "";
+          const link = whatsappLink(
+            v.patient?.phone,
+            t("billing.whatsapp.reminder", {
+              name: v.patient?.first_name ?? name,
+              number: v.invoice.number ?? "",
+              date: date(v.invoice.issue_date),
+              amount: gnf(v.figures.balance),
+              cabinet: cabinet?.name ?? "",
+            }),
+          );
+          return (
+            <li key={v.invoice.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 ${late > 0 || pastDue ? "bg-danger-soft/60" : ""}`}>
+              <Link href={`/app/facturation/facture?id=${v.invoice.id}`} className="min-w-0 flex-1 hover:underline">
+                <div className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
+                  <span className="truncate">{name || "—"}</span>
+                  <span className="font-normal text-muted">
+                    <DocNumber number={v.invoice.number} status={v.invoice.status} />
+                  </span>
                 </div>
-              )}
-            </Link>
-            <div className="flex items-center gap-2">
-              <div className="text-right">
-                <div className="whitespace-nowrap text-sm font-semibold text-danger">{gnf(v.figures.balance)}</div>
-                <div className="whitespace-nowrap text-xs text-muted">
-                  {t("billing.fields.total")} {gnf(v.figures.total)}
+                <div className="text-xs text-muted">
+                  {date(v.invoice.issue_date)} · {t("billing.list.age", { days: age })}
+                  {v.patient?.phone ? ` · ${formatPhone(v.patient.phone)}` : ""}
                 </div>
+                {(late > 0 || pastDue) && (
+                  <div className="text-xs font-medium text-danger">
+                    {late > 0 ? t("billing.list.overdueAmount", { amount: gnf(late) }) : t("billing.list.pastDue", { date: date(v.invoice.due_date) })}
+                  </div>
+                )}
+              </Link>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <div className="whitespace-nowrap text-sm font-semibold text-danger">{gnf(v.figures.balance)}</div>
+                  <div className="whitespace-nowrap text-xs text-muted">
+                    {t("billing.fields.total")} {gnf(v.figures.total)}
+                  </div>
+                </div>
+                {link ? (
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-border px-2 text-xs font-medium text-success hover:bg-success-soft"
+                    title={t("billing.actions.remind")}
+                  >
+                    <MessageCircle className="size-4" />
+                    <span className="hidden sm:inline">{t("billing.actions.remind")}</span>
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted">{t("billing.list.noPhone")}</span>
+                )}
+                {collect.button(v)}
               </div>
-              {link ? (
-                <a
-                  href={link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-border px-2 text-xs font-medium text-success hover:bg-success-soft"
-                  title={t("billing.actions.remind")}
-                >
-                  <MessageCircle className="size-4" />
-                  <span className="hidden sm:inline">{t("billing.actions.remind")}</span>
-                </a>
-              ) : (
-                <span className="text-xs text-muted">{t("billing.list.noPhone")}</span>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+            </li>
+          );
+        })}
+      </ul>
+      {collect.dialog}
+    </>
   );
 }

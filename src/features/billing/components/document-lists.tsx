@@ -6,38 +6,44 @@ import { fullName } from "@/lib/format";
 import { EmptyState } from "@/components/ui/card";
 import type { InvoiceView, QuoteView } from "../data";
 import { displayQuoteStatus } from "../lib/totals";
+import { useCollectAction } from "./collect-action";
 import { DocNumber, InvoiceStatusBadge, ProvisionalBadge, QuoteStatusBadge, useBilling } from "./common";
 
 export function InvoiceList({ views, compact }: { views: InvoiceView[]; compact?: boolean }) {
   const { t, gnf, date } = useBilling();
+  const collect = useCollectAction();
   if (!views.length) return <EmptyState icon={<Receipt />} title={t("billing.list.emptyInvoices")} />;
   return (
-    <ul className="divide-y divide-border">
-      {views.map((v) => (
-        <li key={v.invoice.id}>
-          <Link href={`/app/facturation/facture?id=${v.invoice.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-primary-soft">
-            <div className="min-w-0 flex-1">
-              <div className="whitespace-nowrap text-sm font-medium">
-                <DocNumber number={v.invoice.number} status={v.invoice.status} />
+    <>
+      <ul className="divide-y divide-border">
+        {views.map((v) => (
+          <li key={v.invoice.id} className="flex flex-col hover:bg-primary-soft sm:flex-row sm:items-center">
+            <Link href={`/app/facturation/facture?id=${v.invoice.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-4 sm:pr-2">
+              <div className="min-w-0 flex-1">
+                <div className="whitespace-nowrap text-sm font-medium">
+                  <DocNumber number={v.invoice.number} status={v.invoice.status} />
+                </div>
+                {!compact && <div className="truncate text-sm">{v.patient ? fullName(v.patient) : "—"}</div>}
+                <div className="text-xs text-muted">{date(v.invoice.issue_date)}</div>
               </div>
-              {!compact && <div className="truncate text-sm">{v.patient ? fullName(v.patient) : "—"}</div>}
-              <div className="text-xs text-muted">{date(v.invoice.issue_date)}</div>
-            </div>
-            <div className="flex flex-col items-end gap-1 text-right">
-              <div className="whitespace-nowrap text-sm font-semibold">
-                {gnf(v.figures.total)} <ProvisionalBadge show={v.figures.provisional} />
+              <div className="flex flex-col items-end gap-1 text-right">
+                <div className="whitespace-nowrap text-sm font-semibold">
+                  {gnf(v.figures.total)} <ProvisionalBadge show={v.figures.provisional} />
+                </div>
+                {v.figures.balance > 0 && v.figures.paid > 0 && (
+                  <span className="whitespace-nowrap text-xs text-danger">
+                    {t("billing.fields.balance")} {gnf(v.figures.balance)}
+                  </span>
+                )}
+                <InvoiceStatusBadge status={v.figures.status} />
               </div>
-              {v.figures.balance > 0 && v.figures.paid > 0 && (
-                <span className="whitespace-nowrap text-xs text-danger">
-                  {t("billing.fields.balance")} {gnf(v.figures.balance)}
-                </span>
-              )}
-              <InvoiceStatusBadge status={v.figures.status} />
-            </div>
-          </Link>
-        </li>
-      ))}
-    </ul>
+            </Link>
+            <div className="flex justify-end px-4 pb-3 empty:hidden sm:pb-0 sm:pl-0">{collect.button(v)}</div>
+          </li>
+        ))}
+      </ul>
+      {collect.dialog}
+    </>
   );
 }
 

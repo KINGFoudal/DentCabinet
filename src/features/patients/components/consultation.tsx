@@ -17,7 +17,16 @@ import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, PageSpinner } from "@/components/ui/card";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { createInvoice, issueInvoice } from "@/features/billing/actions";
+import { createInvoice, issueInvoice, recordPayment } from "@/features/billing/actions";
+import {
+  amountInput,
+  CollectNowFields,
+  receiptHref,
+  useCounterPayment,
+  validateCounter,
+  type CounterMethod,
+  type CounterValue,
+} from "@/features/billing/components/counter-payment";
 import { useActs } from "@/features/billing/data";
 import { uninvoicedDoneItems } from "@/features/billing/lib/convert";
 import { buildPrescription, emptyRxItem, type RxItem } from "../lib/clinical";
@@ -125,6 +134,10 @@ function Consultation({ patientId, appointmentParam }: { patientId: string | nul
   const [markDone, setMarkDone] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // « Encaisser maintenant » (paiement au comptoir, marche hors ligne).
+  const [collect, setCollect] = useState<CounterMethod | "later">("later");
+  const payState = useCounterPayment(null);
+  const [done, setDone] = useState<{ invoiceId: string | null; rxId: string | null; payment: CounterValue & { id: string } } | null>(null);
 
   if (patient === undefined || context === undefined || acts === undefined) return <PageSpinner />;
   if (!patient || !context || patient.deleted_at) return <p className="p-6 text-center text-muted">{t("patients.file.notFound")}</p>;
@@ -158,6 +171,13 @@ function Consultation({ patientId, appointmentParam }: { patientId: string | nul
     if (!user || !patient || saving) return;
     const check = checkConsultation(drafts, rxItems, withRx);
     if (!check.ok) return setError(t(`patients.consult.${check.error}`));
+    const lineTotal = check.lines.reduce((s, l) => s + l.quantity * l.unit_price_gnf, 0);
+    const collecting = collect !== "later" && lineTotal > 0;
+    let pay: CounterValue | null = null;
+    if (collecting) {
+      pay = validateCounter(payState, lineTotal, t, gnf, payState.amount.trim() ? payState.amount : amountInput(lineTotal));
+      if (!pay) return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -172,7 +192,7 @@ function Consultation({ patientId, appointmentParam }: { patientId: string | nul
           appointmentId: appointment?.id ?? null,
           lines: check.lines,
         });
-        if (mode === "issued") await issueInvoice(invoiceId, today);
+        if (mode === "issued" || collecting) await issueInvoice(invoiceId, today);
       }
       let rxId: string | null = null;
       if (check.rxItems.length) {
@@ -191,13 +211,67 @@ function Consultation({ patientId, appointmentParam }: { patientId: string | nul
       if (appointment && markDone && appointment.status !== "done") {
         await mutate("appointments", { id: appointment.id, status: "done", arrived_at: appointment.arrived_at ?? new Date().toISOString() });
       }
+      let paymentId: string | null = null;
+      if (pay && invoiceId) {
+        paymentId = (
+          await recordPayment({
+            cabinetId,
+            invoiceId,
+            amount: pay.amount,
+            method: pay.method,
+            reference: pay.reference,
+            paidAt: new Date().toISOString(),
+            userId: user.id,
+            notes: null,
+          })
+        ).id;
+      }
       toast(t("patients.consult.done"));
+      // Encaissé : proposer le reçu (et la monnaie à rendre) avant de quitter l'écran.
+      if (pay && paymentId) return setDone({ invoiceId, rxId, payment: { ...pay, id: paymentId } });
       router.push(print ? consultationPrintHref({ patientId: patient.id, invoiceId, rxId }) : `/app/patients/fiche?id=${patient.id}`);
     } catch (e) {
       toast(e instanceof Error ? e.message : t("common.error"), "error");
     } finally {
       setSaving(false);
     }
+  }
+
+  if (done) {
+    const p = done.payment;
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 py-6 text-center" data-testid="consult-paid">
+        <CheckCircle2 className="size-12 text-success" aria-hidden />
+        <h1 className="text-xl font-semibold">{t("billing.consultPay.doneTitle")}</h1>
+        <p className="text-sm text-muted">{fullName(patient)}</p>
+        <p className="font-medium">
+          {t("billing.payment.recorded")} · {gnf(p.amount)} · {t(`billing.method.${p.method}`)}
+        </p>
+        {p.method === "cash" && p.tendered != null && (
+          <div className="w-full rounded-lg bg-success-soft px-4 py-3">
+            <div className="text-sm">
+              {t("billing.cash.tendered")} : {gnf(p.tendered)}
+            </div>
+            <div className="mt-1 text-sm font-medium">{t("billing.cash.change")}</div>
+            <div className="text-2xl font-bold" data-testid="change-final">
+              {gnf(p.change)}
+            </div>
+          </div>
+        )}
+        <div className="flex w-full flex-col gap-2">
+          <Link href={receiptHref(p.id, p.method === "cash" ? p.tendered : null)} className={buttonClass("primary", "lg")}>
+            <Printer className="size-4" />
+            {t("billing.actions.printReceipt")}
+          </Link>
+          <Link href={consultationPrintHref({ patientId: patient.id, invoiceId: done.invoiceId, rxId: done.rxId })} className={buttonClass("secondary")}>
+            {t("billing.consultPay.printDocs")}
+          </Link>
+          <Link href={`/app/patients/fiche?id=${patient.id}`} className={buttonClass("ghost")}>
+            {t("billing.consultPay.toFile")}
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -341,6 +415,17 @@ function Consultation({ patientId, appointmentParam }: { patientId: string | nul
           </div>
         </CardBody>
       </Card>
+
+      {total > 0 && (
+        <Card>
+          <CardHeader title={t("billing.consultPay.title")} />
+          <CardBody className="flex flex-col gap-2">
+            <p className="text-xs text-muted">{t("billing.consultPay.hint")}</p>
+            <CollectNowFields choice={collect} onChoice={setCollect} state={payState} total={total} />
+            {collect !== "later" && mode === "draft" && <p className="text-xs text-warning">{t("billing.consultPay.issuedNote")}</p>}
+          </CardBody>
+        </Card>
+      )}
 
       <Card>
         <CardHeader title={t("patients.consult.rx")} actions={<Checkbox label={t("patients.consult.noRx")} checked={!withRx} onChange={(e) => setWithRx(!e.target.checked)} />} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callbackBaseUrl, isProductionDeployment, paymentsMode, sandboxAllowed, sandboxSecret } from "./config";
+import { callbackBaseUrl, isProductionDeployment, mobilePaymentsAvailable, paymentsMode, sandboxAllowed, sandboxSecret } from "./config";
 
 const SECRET = { PAYMENTS_SANDBOX_SECRET: "s3cret" };
 
@@ -19,6 +19,14 @@ describe("configuration des paiements", () => {
     expect(sandboxAllowed({ NODE_ENV: "production", PAYMENTS_MODE: "sandbox", ...SECRET })).toBe(false);
     expect(sandboxAllowed({ NODE_ENV: "production", NIMBA_ENV: "development", PAYMENTS_MODE: "sandbox", ...SECRET })).toBe(true);
     expect(sandboxAllowed({ PAYMENTS_MODE: "live", ...SECRET })).toBe(false);
+  });
+
+  it("indique si le paiement mobile est proposé", () => {
+    expect(mobilePaymentsAvailable({})).toBe(false);
+    expect(mobilePaymentsAvailable({ NODE_ENV: "production" })).toBe(false);
+    expect(mobilePaymentsAvailable({ PAYMENTS_MODE: "live" })).toBe(true);
+    expect(mobilePaymentsAvailable({ PAYMENTS_MODE: "sandbox", ...SECRET })).toBe(true);
+    expect(mobilePaymentsAvailable({ PAYMENTS_MODE: "sandbox", NIMBA_ENV: "production", ...SECRET })).toBe(false);
   });
 
   it("exige un secret dédié pour la simulation", () => {

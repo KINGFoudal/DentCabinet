@@ -23,7 +23,8 @@ import {
   type PortalLine,
   type PortalQuote,
 } from "@/features/portal/lib/portal-data";
-import type { PortalCabinet } from "@/features/portal/lib/types";
+import type { OpeningHours, PortalCabinet } from "@/features/portal/lib/types";
+import { CashAtCabinet } from "./cash-at-cabinet";
 
 const APPT_TONE: Record<string, Tone> = {
   scheduled: "info",
@@ -198,7 +199,20 @@ function Lines({ lines }: { lines: PortalLine[] }) {
   );
 }
 
-export function BillingSection({ data, lookup, onPay }: { data: PortalData; lookup: Lookup; onPay: (inv: PortalInvoice) => void }) {
+export function BillingSection({
+  data,
+  lookup,
+  onPay,
+  mobile,
+  hours,
+}: {
+  data: PortalData;
+  lookup: Lookup;
+  onPay: (inv: PortalInvoice) => void;
+  /** Paiement mobile configuré sur le serveur (sinon : seulement les espèces au cabinet). */
+  mobile: boolean;
+  hours: Record<string, OpeningHours>;
+}) {
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-5">
@@ -209,7 +223,7 @@ export function BillingSection({ data, lookup, onPay }: { data: PortalData; look
         ) : (
           <ul className="flex flex-col gap-2">
             {data.invoices.map((inv) => (
-              <InvoiceCard key={inv.id} invoice={inv} lookup={lookup} onPay={onPay} />
+              <InvoiceCard key={inv.id} invoice={inv} lookup={lookup} onPay={onPay} mobile={mobile} hours={hours[inv.cabinet_id]} />
             ))}
           </ul>
         )}
@@ -230,13 +244,26 @@ export function BillingSection({ data, lookup, onPay }: { data: PortalData; look
   );
 }
 
-function InvoiceCard({ invoice, lookup, onPay }: { invoice: PortalInvoice; lookup: Lookup; onPay: (inv: PortalInvoice) => void }) {
+function InvoiceCard({
+  invoice,
+  lookup,
+  onPay,
+  mobile,
+  hours,
+}: {
+  invoice: PortalInvoice;
+  lookup: Lookup;
+  onPay: (inv: PortalInvoice) => void;
+  mobile: boolean;
+  hours: OpeningHours | undefined;
+}) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const cabinet = lookup.cabinet(invoice.cabinet_id);
   const tz = cabinet?.timezone;
   const due = balance(invoice);
   const payments = invoice.payments.filter((p) => !p.deleted_at && p.status === "succeeded");
+  const payable = due > 0 && (invoice.status === "issued" || invoice.status === "partially_paid");
   return (
     <li>
       <Card>
@@ -266,9 +293,15 @@ function InvoiceCard({ invoice, lookup, onPay }: { invoice: PortalInvoice; looku
           {due > 0 && invoice.due_date && (
             <p className="text-xs text-muted">{t("portal.billing.due", { date: formatDate(invoice.due_date, locale, "UTC") })}</p>
           )}
+          {payable && <CashAtCabinet amount={due} number={invoice.number} cabinet={cabinet} hours={hours} />}
           <div className="flex flex-wrap items-center gap-2">
-            {due > 0 && (invoice.status === "issued" || invoice.status === "partially_paid") && (
-              <Button onClick={() => onPay(invoice)}>{t("portal.billing.pay")}</Button>
+            {payable && mobile && (
+              <>
+                <span className="text-sm text-muted">{t("portal.cash.orMobile")}</span>
+                <Button variant="secondary" onClick={() => onPay(invoice)}>
+                  {t("portal.cash.payMobile")}
+                </Button>
+              </>
             )}
             <button type="button" className="flex items-center gap-1 text-sm text-primary hover:underline" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
               {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}

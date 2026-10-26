@@ -33,6 +33,11 @@ export function sandboxAllowed(env: Env = process.env) {
   return paymentsMode(env) === "sandbox" && !isProductionDeployment(env) && !!env.PAYMENTS_SANDBOX_SECRET;
 }
 
+/** Paiement mobile utilisable : mode live, ou sandbox autorisé (même règle que assertPaymentsAvailable). */
+export function mobilePaymentsAvailable(env: Env = process.env) {
+  return paymentsMode(env) === "live" || sandboxAllowed(env);
+}
+
 /** Durée de validité d'une transaction en attente (Orange : jeton valable 10 min par défaut). */
 export const TRANSACTION_TTL_MINUTES = 15;
 
