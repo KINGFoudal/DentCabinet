@@ -7,12 +7,20 @@ import { localDb, wipeLocalDb } from "./db";
  */
 
 export const LOCAL_STORAGE_KEYS = ["nimba-cabinet", "nimba-memberships"] as const;
+/** Préfixes des clés par cabinet (ex. patients récemment ouverts). */
+export const LOCAL_STORAGE_PREFIXES = ["nimba-recent-patients:"] as const;
 export const OWNER_KEY = "owner_user_id";
 
 /** Efface toutes les données locales (base IndexedDB et caches). */
 export async function wipeDeviceData() {
   try {
     for (const k of LOCAL_STORAGE_KEYS) localStorage.removeItem(k);
+    const prefixed: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && LOCAL_STORAGE_PREFIXES.some((p) => k.startsWith(p))) prefixed.push(k);
+    }
+    for (const k of prefixed) localStorage.removeItem(k);
   } catch {}
   await wipeLocalDb();
 }

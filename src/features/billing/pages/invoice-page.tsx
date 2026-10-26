@@ -114,7 +114,8 @@ function InvoiceDetail({ view }: { view: InvoiceView }) {
             <>
               <Button size="sm" onClick={() => setPay(true)}>
                 <Wallet className="size-4" />
-                {t("billing.actions.recordPayment")}
+                {/* Déjà payée en partie : « Encaisser le reste (montant) », pré-rempli, espèces par défaut. */}
+                {figures.paid > 0 ? t("billing.actions.collectRest", { amount: gnf(figures.balance) }) : t("billing.actions.recordPayment")}
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setMobile(true)}>
                 <Smartphone className="size-4" />

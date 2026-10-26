@@ -14,17 +14,21 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { TimeSelect } from "@/components/ui/time-select";
 import { useToast } from "@/components/ui/toast";
 import { PatientPicker } from "@/features/patients/components/patient-picker";
 import {
   availabilityWarnings,
+  durationOptions,
   findConflicts,
+  formatDuration,
   hhmmToMinutes,
   isoToMinutes,
   localDay,
   minutesToHHMM,
   minutesToISO,
   nextStatuses,
+  primaryNextStatus,
   statusTone,
   type Status,
 } from "../lib/grid";
@@ -38,6 +42,8 @@ export type AppointmentDefaults = {
   dentist_id?: string | null;
   chair_id?: string | null;
   patient_id?: string | null;
+  /** Absent : type par défaut du cabinet ; null : sans type. */
+  type_id?: string | null;
 };
 
 export function AppointmentDialog({
@@ -85,16 +91,25 @@ function AppointmentForm({
 
   const initStart = appointment?.starts_at ?? defaults.starts_at ?? null;
   const initDate = initStart ? localDay(initStart, tz) : todayISO(tz);
+  const initEnd = appointment?.ends_at ?? defaults.ends_at ?? null;
   const [patientId, setPatientId] = useState<string | null>(appointment?.patient_id ?? defaults.patient_id ?? null);
   const [freeLabel, setFreeLabel] = useState(!!appointment && !appointment.patient_id && !!appointment.title);
   const [title, setTitle] = useState(appointment?.title ?? "");
-  const [typeId, setTypeId] = useState<string>(appointment?.type_id ?? "");
+  // undefined = type par défaut du cabinet (le premier), "" = sans type.
+  const [typeId, setTypeId] = useState<string | undefined>(appointment ? (appointment.type_id ?? "") : defaults.type_id === undefined ? undefined : (defaults.type_id ?? ""));
   const [dentistId, setDentistId] = useState<string>(appointment?.dentist_id ?? defaults.dentist_id ?? "");
   const [chairId, setChairId] = useState<string>(appointment?.chair_id ?? defaults.chair_id ?? "");
   const [date, setDate] = useState(initDate);
-  const [start, setStart] = useState(initStart ? minutesToHHMM(isoToMinutes(initStart, initDate, tz)) : "09:00");
-  const initEnd = appointment?.ends_at ?? defaults.ends_at ?? null;
-  const [end, setEnd] = useState(initEnd ? minutesToHHMM(isoToMinutes(initEnd, initDate, tz)) : "09:30");
+  // Sans heure fournie : prochain quart d'heure (aujourd'hui).
+  const [start, setStart] = useState(() =>
+    initStart
+      ? minutesToHHMM(isoToMinutes(initStart, initDate, tz))
+      : minutesToHHMM(Math.min(Math.ceil(isoToMinutes(new Date().toISOString(), initDate, tz) / 15) * 15, 23 * 60 + 45)),
+  );
+  // undefined = durée du type choisi.
+  const [duration, setDuration] = useState<number | undefined>(() =>
+    initStart && initEnd ? Math.round((new Date(initEnd).getTime() - new Date(initStart).getTime()) / 60000) : undefined,
+  );
   const [notes, setNotes] = useState(appointment?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -102,11 +117,13 @@ function AppointmentForm({
   // Praticien par défaut : soi-même si dentiste, sinon le premier.
   const effectiveDentist = dentistId || (dentists?.find((d) => d.id === user?.id)?.id ?? dentists?.[0]?.id ?? "");
   const effectiveChair = chairId || (!appointment && defaults.chair_id === undefined && chairs?.length === 1 ? chairs[0].id : chairId);
+  const effectiveType = typeId ?? types?.[0]?.id ?? "";
+  const typeDuration = types?.find((x) => x.id === effectiveType)?.duration_minutes;
+  const effectiveDuration = duration ?? typeDuration ?? 30;
 
   const startMin = hhmmToMinutes(start);
-  let endMin = hhmmToMinutes(end);
-  if (end === "00:00" && startMin > 0) endMin = 24 * 60;
-  const validTimes = !!date && !!start && !!end && endMin > startMin;
+  const endMin = startMin + effectiveDuration;
+  const validTimes = !!date && !!start && effectiveDuration > 0 && endMin <= 24 * 60;
   const startsAt = validTimes ? minutesToISO(date, startMin, tz) : null;
   const endsAt = validTimes ? minutesToISO(date, endMin, tz) : null;
   const status = current?.status ?? "scheduled";
@@ -134,18 +151,13 @@ function AppointmentForm({
 
   function onType(id: string) {
     setTypeId(id);
+    // Le type impose sa durée (modifiable ensuite).
     const ty = types?.find((x) => x.id === id);
-    if (ty) setEnd(minutesToHHMM(Math.min(startMin + ty.duration_minutes, 24 * 60)));
-  }
-
-  function onStart(v: string) {
-    // Conserve la durée lorsque l'on change l'heure de début.
-    const duration = endMin - startMin;
-    setStart(v);
-    if (v && duration > 0) setEnd(minutesToHHMM(Math.min(hhmmToMinutes(v) + duration, 24 * 60)));
+    setDuration(ty ? ty.duration_minutes : effectiveDuration);
   }
 
   async function submit() {
+    if (saving) return;
     setError(null);
     if (!freeLabel && !patientId) return setError(t("agenda.form.patientOrTitle"));
     if (freeLabel && !title.trim()) return setError(t("agenda.form.patientOrTitle"));
@@ -158,7 +170,7 @@ function AppointmentForm({
         {
           patient_id: freeLabel ? null : patientId,
           title: freeLabel ? title.trim() : null,
-          type_id: typeId || null,
+          type_id: effectiveType || null,
           dentist_id: effectiveDentist,
           chair_id: effectiveChair || null,
           starts_at: startsAt,
@@ -205,6 +217,7 @@ function AppointmentForm({
   }
 
   const disabled = readOnly;
+  const formId = `appointment-${appointment?.id ?? "new"}`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -225,11 +238,18 @@ function AppointmentForm({
           </div>
           {!readOnly && (
             <div className="flex flex-wrap gap-2">
-              {nextStatuses(current.status).map((s) => (
-                <Button key={s} size="sm" variant={s === "cancelled" || s === "no_show" ? "secondary" : "primary"} onClick={() => quickStatus(s)}>
-                  {t(`agenda.action.${s}`)}
-                </Button>
-              ))}
+              {nextStatuses(current.status)
+                .sort((a, b) => Number(b === primaryNextStatus(current.status)) - Number(a === primaryNextStatus(current.status)))
+                .map((s) => (
+                  <Button
+                    key={s}
+                    size="sm"
+                    variant={s === primaryNextStatus(current.status) ? "primary" : s === "cancelled" || s === "no_show" ? "ghost" : "secondary"}
+                    onClick={() => quickStatus(s)}
+                  >
+                    {t(`agenda.action.${s}`)}
+                  </Button>
+                ))}
             </div>
           )}
           <div>
@@ -241,6 +261,21 @@ function AppointmentForm({
 
       {readOnly && <p className="text-sm text-muted">{t("agenda.form.readOnly")}</p>}
 
+      <form
+        id={formId}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+        onKeyDown={(e) => {
+          // Entrée enregistre aussi depuis une liste déroulante (pas depuis les notes ni un bouton).
+          const el = e.target as HTMLElement;
+          if (e.key === "Enter" && !e.shiftKey && el.tagName === "SELECT") {
+            e.preventDefault();
+            void submit();
+          }
+        }}
+      >
       <fieldset disabled={disabled} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between gap-2">
@@ -252,18 +287,18 @@ function AppointmentForm({
           {freeLabel ? (
             <Input aria-label={t("agenda.form.title")} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("agenda.form.freeLabel")} />
           ) : (
-            <PatientPicker value={patientId} onChange={(p) => setPatientId(p?.id ?? null)} />
+            <PatientPicker value={patientId} onChange={(p) => setPatientId(p?.id ?? null)} autoFocus={!appointment} showRecent />
           )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t("agenda.form.type")}>
             {(p) => (
-              <Select {...p} value={typeId} onChange={(e) => onType(e.target.value)}>
+              <Select {...p} value={effectiveType} onChange={(e) => onType(e.target.value)}>
                 <option value="">{t("agenda.form.noType")}</option>
                 {types?.map((ty) => (
                   <option key={ty.id} value={ty.id}>
-                    {ty.name} · {t("agenda.form.duration", { minutes: ty.duration_minutes })}
+                    {ty.name} · {formatDuration(ty.duration_minutes)}
                   </option>
                 ))}
               </Select>
@@ -295,11 +330,19 @@ function AppointmentForm({
           <Field label={t("agenda.form.date")} required>
             {(p) => <Input {...p} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}
           </Field>
-          <Field label={t("agenda.form.start")} required>
-            {(p) => <Input {...p} type="time" step={900} value={start} onChange={(e) => onStart(e.target.value)} />}
+          <Field label={t("agenda.form.start")} required hint={t("agenda.form.endsAt", { time: minutesToHHMM(endMin) })}>
+            {(p) => <TimeSelect {...p} aria-label={t("agenda.form.start")} value={start} onChange={setStart} />}
           </Field>
-          <Field label={t("agenda.form.end")} required error={validTimes ? undefined : t("agenda.form.endAfterStart")}>
-            {(p) => <Input {...p} type="time" step={900} value={end} onChange={(e) => setEnd(e.target.value)} />}
+          <Field label={t("agenda.form.durationLabel")} required error={validTimes ? undefined : t("agenda.form.endAfterStart")}>
+            {(p) => (
+              <Select {...p} value={effectiveDuration} onChange={(e) => setDuration(Number(e.target.value))}>
+                {durationOptions(effectiveDuration).map((d) => (
+                  <option key={d} value={d}>
+                    {formatDuration(d)}
+                  </option>
+                ))}
+              </Select>
+            )}
           </Field>
         </div>
 
@@ -307,6 +350,7 @@ function AppointmentForm({
           {(p) => <Textarea {...p} value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-16" />}
         </Field>
       </fieldset>
+      </form>
 
       {conflicts && conflicts.length > 0 && (
         <div role="alert" className="rounded-lg border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
@@ -342,7 +386,7 @@ function AppointmentForm({
           <Button variant="secondary" onClick={onDone}>
             {t("common.cancel")}
           </Button>
-          <Button onClick={submit} loading={saving} disabled={!validTimes || !!(conflicts && conflicts.length)}>
+          <Button type="submit" form={formId} loading={saving} disabled={!validTimes || !!(conflicts && conflicts.length)} title={t("agenda.form.enterHint")}>
             {warnings.length ? t("agenda.form.saveAnyway") : t("agenda.form.save")}
           </Button>
         </div>

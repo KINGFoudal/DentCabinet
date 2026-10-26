@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { useCabinet } from "@/lib/cabinet/cabinet-provider";
 import { isStrongPassword, safeNext, slugify } from "@/lib/auth/validation";
+import { authErrorKey } from "@/lib/auth/errors";
+import { afterSignupPath, confirmationRedirect, SIGNUP_EMAIL_KEY } from "@/lib/auth/signup";
 import { normalizeGuineaPhone } from "@/lib/format";
 import { useT } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
@@ -29,11 +31,12 @@ function Signup() {
     if (ready && user && next) router.replace(safeNext(next));
   }, [ready, user, next, router]);
   if (!ready || (user && next)) return null;
-  return user ? <CabinetStep /> : <AccountStep />;
+  return user ? <CabinetStep /> : <AccountStep next={next ? safeNext(next) : null} />;
 }
 
-function AccountStep() {
+function AccountStep({ next }: { next: string | null }) {
   const t = useT();
+  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,14 +48,31 @@ function AccountStep() {
     if (!isStrongPassword(password)) return setError(t("auth.passwordRule"));
     setLoading(true);
     setError(null);
-    const { error } = await supabase().auth.signUp({
-      email: email.trim(),
+    const address = email.trim();
+    const { data, error } = await supabase().auth.signUp({
+      email: address,
       password,
-      options: { data: { full_name: fullName.trim() } },
+      options: { data: { full_name: fullName.trim() }, emailRedirectTo: confirmationRedirect(window.location.origin, next) },
     });
+    if (error) {
+      setLoading(false);
+      return setError(t(authErrorKey(error)));
+    }
+    // Adresse déjà inscrite : Supabase renvoie un utilisateur sans identité (et n'envoie rien).
+    if (data.user && data.user.identities?.length === 0) {
+      setLoading(false);
+      return setError(t("auth.errors.emailTaken"));
+    }
+    if (!data.session) {
+      // Confirmation d'email requise (production) : on se connecte après avoir cliqué le lien.
+      try {
+        sessionStorage.setItem(SIGNUP_EMAIL_KEY, address);
+      } catch {}
+      router.replace(afterSignupPath(next));
+      return;
+    }
     setLoading(false);
-    if (error) setError(error.message);
-    // La session ouverte fait passer automatiquement à l'étape « cabinet ».
+    // Sans confirmation requise, la session ouverte fait passer à l'étape « cabinet ».
   }
 
   return (
@@ -73,7 +93,7 @@ function AccountStep() {
       </Button>
       <p className="text-center text-sm">
         {t("auth.haveAccount")}{" "}
-        <Link href="/connexion" className="text-primary hover:underline">
+        <Link href={next ? `/connexion?next=${encodeURIComponent(next)}` : "/connexion"} className="text-primary hover:underline">
           {t("auth.login")}
         </Link>
       </p>
@@ -97,7 +117,7 @@ function CabinetStep() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const normalizedPhone = phone ? normalizeGuineaPhone(phone) : null;
-    if (phone && !normalizedPhone) return setError("Téléphone invalide");
+    if (phone && !normalizedPhone) return setError(t("auth.errors.invalidPhone"));
     setLoading(true);
     setError(null);
     const { data, error } = await supabase().rpc("create_cabinet", {
@@ -109,7 +129,7 @@ function CabinetStep() {
     });
     if (error) {
       setLoading(false);
-      return setError(error.code === "23505" ? "Cette adresse est déjà prise." : error.message);
+      return setError(t(authErrorKey(error)));
     }
     await reloadMemberships();
     selectCabinet(data as string);
@@ -119,6 +139,7 @@ function CabinetStep() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <h1 className="text-lg font-semibold">{t("auth.createCabinet")}</h1>
+      <p className="text-sm text-muted">{t("auth.cabinetStepHint")}</p>
       <Field label={t("auth.cabinetName")} required>
         {(p) => (
           <Input
@@ -149,7 +170,11 @@ function CabinetStep() {
       </Field>
       <Field label={t("auth.cabinetCity")}>{(p) => <Input {...p} value={city} onChange={(e) => setCity(e.target.value)} />}</Field>
       <Checkbox label={t("auth.iAmDentist")} checked={isDentist} onChange={(e) => setIsDentist(e.target.checked)} />
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
       <Button type="submit" loading={loading} disabled={!name || !slug}>
         {t("auth.createCabinet")}
       </Button>

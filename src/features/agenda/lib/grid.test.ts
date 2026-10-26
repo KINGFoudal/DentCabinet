@@ -9,7 +9,12 @@ import {
   layoutLanes,
   minutesToHHMM,
   minutesToISO,
+  durationOptions,
+  formatDuration,
+  gridLines,
   nextStatuses,
+  primaryNextStatus,
+  slotAt,
   snap,
   statusPatch,
   unavailableIntervals,
@@ -63,10 +68,41 @@ describe("dates et plages", () => {
 });
 
 describe("grille", () => {
-  it("aligne sur 15 minutes", () => {
-    expect(snap(7)).toBe(0);
-    expect(snap(8)).toBe(15);
-    expect(snap(52)).toBe(45);
+  it("aligne sur 5 minutes", () => {
+    expect(snap(2)).toBe(0);
+    expect(snap(3)).toBe(5);
+    expect(snap(52)).toBe(50);
+    expect(snap(723)).toBe(725);
+    expect(snap(8, 15)).toBe(15);
+  });
+
+  it("un clic choisit le début de la case de 15 min", () => {
+    // Une heure = 60 px : 100 px sous 8 h = 9 h 40 -> case de 9 h 30.
+    expect(slotAt(100, 480, 60)).toBe(570);
+    expect(slotAt(0, 480, 60)).toBe(480);
+    expect(slotAt(-5, 480, 60)).toBe(480);
+    expect(slotAt(100, 480, 60) % 5).toBe(0);
+  });
+
+  it("lignes principales chaque heure, secondaires chaque quart d'heure", () => {
+    const lines = gridLines(480, 600);
+    expect(lines.map((l) => l.minutes)).toEqual([480, 495, 510, 525, 540, 555, 570, 585]);
+    expect(lines.filter((l) => l.kind === "hour").map((l) => l.minutes)).toEqual([480, 540]);
+    expect(lines.find((l) => l.minutes === 510)?.kind).toBe("half");
+    expect(lines.find((l) => l.minutes === 495)?.kind).toBe("quarter");
+  });
+
+  it("durées par pas de 5 minutes", () => {
+    const d = durationOptions();
+    expect(d[0]).toBe(5);
+    expect(d.slice(0, 4)).toEqual([5, 10, 15, 20]);
+    expect(d.at(-1)).toBe(480);
+    expect(d.every((x) => x % 5 === 0)).toBe(true);
+    // Une durée existante hors pas reste sélectionnable.
+    expect(durationOptions(37)).toContain(37);
+    expect(formatDuration(45)).toBe("45 min");
+    expect(formatDuration(90)).toBe("1 h 30");
+    expect(formatDuration(120)).toBe("2 h");
   });
 
   it("place les RDV qui se chevauchent côte à côte", () => {
@@ -84,9 +120,12 @@ describe("grille", () => {
 });
 
 describe("glisser-déposer", () => {
-  it("déplace en conservant la durée, au pas de 15 min", () => {
-    expect(applyDrag({ start: 540, end: 570 }, 22, "move")).toEqual({ start: 555, end: 585 });
-    expect(applyDrag({ start: 540, end: 570 }, -7, "move")).toEqual({ start: 540, end: 570 });
+  it("déplace en conservant la durée, au pas de 5 min", () => {
+    expect(applyDrag({ start: 540, end: 570 }, 22, "move")).toEqual({ start: 560, end: 590 });
+    expect(applyDrag({ start: 540, end: 570 }, -7, "move")).toEqual({ start: 535, end: 565 });
+    expect(applyDrag({ start: 540, end: 570 }, 2, "move")).toEqual({ start: 540, end: 570 });
+    // Un RDV hors pas (9 h 07) est réaligné sur 5 minutes.
+    expect(applyDrag({ start: 547, end: 577 }, 0.4, "move")).toEqual({ start: 545, end: 575 });
   });
 
   it("reste dans les bornes de la grille", () => {
@@ -94,9 +133,19 @@ describe("glisser-déposer", () => {
     expect(applyDrag({ start: 540, end: 600 }, 1000, "move", [420, 1200])).toEqual({ start: 1140, end: 1200 });
   });
 
-  it("redimensionne la fin, durée minimale 15 min", () => {
+  it("redimensionne la fin au pas de 5 min, durée minimale 5 min", () => {
     expect(applyDrag({ start: 540, end: 570 }, 31, "resize")).toEqual({ start: 540, end: 600 });
-    expect(applyDrag({ start: 540, end: 570 }, -60, "resize")).toEqual({ start: 540, end: 555 });
+    expect(applyDrag({ start: 540, end: 570 }, 8, "resize")).toEqual({ start: 540, end: 580 });
+    expect(applyDrag({ start: 540, end: 570 }, -60, "resize")).toEqual({ start: 540, end: 545 });
+  });
+
+  it("toutes les positions possibles tombent sur un multiple de 5 minutes", () => {
+    for (let delta = -90; delta <= 90; delta += 1.3) {
+      const m = applyDrag({ start: 540, end: 585 }, delta, "move");
+      const r = applyDrag({ start: 540, end: 585 }, delta, "resize");
+      expect(m.start % 5).toBe(0);
+      expect(r.end % 5).toBe(0);
+    }
   });
 });
 
@@ -171,6 +220,15 @@ describe("statuts", () => {
     expect(nextStatuses("scheduled")).toContain("confirmed");
     expect(nextStatuses("arrived")).toContain("in_treatment");
     expect(nextStatuses("cancelled")).toEqual(["scheduled"]);
+  });
+
+  it("étape suivante en un clic : Arrivé, En soin, Terminé", () => {
+    expect(primaryNextStatus("scheduled")).toBe("arrived");
+    expect(primaryNextStatus("confirmed")).toBe("arrived");
+    expect(primaryNextStatus("arrived")).toBe("in_treatment");
+    expect(primaryNextStatus("in_treatment")).toBe("done");
+    expect(primaryNextStatus("done")).toBeNull();
+    expect(primaryNextStatus("cancelled")).toBeNull();
   });
 
   it("l'arrivée enregistre l'heure, une seule fois", () => {

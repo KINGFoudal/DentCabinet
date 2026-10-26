@@ -21,7 +21,8 @@ export const messages = {
       more: "+{count} autres",
       count: "{count} RDV",
       empty: "Aucun rendez-vous ce jour.",
-      dragHint: "Glissez un RDV pour le déplacer, tirez le bas pour changer sa durée (maintenez le doigt sur mobile).",
+      dragHint:
+        "Touchez un créneau vide pour créer un RDV. Glissez un RDV pour le déplacer, tirez le bas pour changer sa durée (pas de 5 min ; maintenez le doigt sur mobile).",
       moved: "Rendez-vous déplacé",
       provisional: "provisoire",
       online: "En ligne",
@@ -73,6 +74,10 @@ export const messages = {
         readOnly: "Vous ne pouvez pas modifier les rendez-vous.",
         arrivedAt: "Arrivé à {time}",
         source: "Origine",
+        durationLabel: "Durée",
+        endsAt: "Fin à {time}",
+        enterHint: "Entrée pour enregistrer",
+        statusRefused: "Impossible de changer le statut : le créneau est déjà occupé.",
       },
       reminders: {
         title: "Rappels",
@@ -123,7 +128,7 @@ export const messages = {
         addInterval: "Ajouter une plage",
         copyMonday: "Copier le lundi sur les jours ouvrés",
         schedulesHint:
-          "Sans horaires saisis, l'agenda utilise les heures d'ouverture du cabinet. Une modification est enregistrée dès que vous quittez le champ.",
+          "Sans horaires saisis, l'agenda utilise les heures d'ouverture du cabinet. Une modification est enregistrée dès que vous choisissez une heure (pas de 5 minutes).",
         invalidInterval: "L'heure de fin doit être après l'heure de début.",
         timeOffFor: "Concerne",
         wholeCabinet: "Tout le cabinet",
@@ -135,6 +140,8 @@ export const messages = {
         pastTimeOff: "Absences passées",
         noTimeOff: "Aucune absence prévue.",
         onlyOwn: "Vous ne pouvez modifier que vos propres horaires et absences.",
+        fromTime: "Heure de début",
+        toTime: "Heure de fin",
         settingsOnlyAdmin: "Seul l'administrateur modifie les fauteuils et les types de rendez-vous.",
       },
       templates: {
@@ -213,7 +220,8 @@ export const messages = {
       more: "+{count} more",
       count: "{count} appts",
       empty: "No appointments this day.",
-      dragHint: "Drag an appointment to move it, pull its bottom edge to change its length (long-press on mobile).",
+      dragHint:
+        "Tap an empty slot to create an appointment. Drag an appointment to move it, pull its bottom edge to change its length (5-minute steps; long-press on mobile).",
       moved: "Appointment moved",
       provisional: "provisional",
       online: "Online",
@@ -265,6 +273,10 @@ export const messages = {
         readOnly: "You cannot edit appointments.",
         arrivedAt: "Arrived at {time}",
         source: "Source",
+        durationLabel: "Duration",
+        endsAt: "Ends at {time}",
+        enterHint: "Press Enter to save",
+        statusRefused: "Could not change the status: the slot is already taken.",
       },
       reminders: {
         title: "Reminders",
@@ -314,7 +326,7 @@ export const messages = {
         dayOff: "Not working",
         addInterval: "Add a time range",
         copyMonday: "Copy Monday to weekdays",
-        schedulesHint: "Without working hours, the schedule uses the practice opening hours. Changes are saved when you leave the field.",
+        schedulesHint: "Without working hours, the schedule uses the practice opening hours. Changes are saved as soon as you pick a time (5-minute steps).",
         invalidInterval: "End time must be after start time.",
         timeOffFor: "Applies to",
         wholeCabinet: "Whole practice",
@@ -326,6 +338,8 @@ export const messages = {
         pastTimeOff: "Past time off",
         noTimeOff: "No time off planned.",
         onlyOwn: "You can only edit your own working hours and time off.",
+        fromTime: "Start time",
+        toTime: "End time",
         settingsOnlyAdmin: "Only the administrator edits chairs and appointment types.",
       },
       templates: {

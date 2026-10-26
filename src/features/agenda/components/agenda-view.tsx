@@ -13,6 +13,7 @@ import { Checkbox, Select } from "@/components/ui/input";
 import { PageHeader, PageSpinner } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { useToast } from "@/components/ui/toast";
+import { useShortcuts } from "@/components/app/shortcuts";
 import {
   availabilityWarnings,
   displayHours,
@@ -24,10 +25,11 @@ import {
   shiftDate,
   viewDays,
   viewRange,
+  type Status,
   type View,
 } from "../lib/grid";
 import { useAppointmentTypes, useAppointmentsInRange, useAvailability, useChairs, useDentists, type Appointment } from "../lib/data";
-import { saveAppointment } from "../lib/actions";
+import { changeStatus, saveAppointment } from "../lib/actions";
 import { useIsMobile, useNow, usePersistentState } from "../lib/hooks";
 import { TimeGrid, type GridColumn } from "./time-grid";
 import { MonthView } from "./month-view";
@@ -168,20 +170,48 @@ export function AgendaView() {
     return target;
   }
 
+  /**
+   * Nouveau RDV pré-rempli : heure de la case cliquée (sinon prochain quart d'heure aujourd'hui,
+   * 9 h les autres jours), praticien ou fauteuil de la colonne, type par défaut et sa durée.
+   */
   function openNew(col: GridColumn | null, minutes?: number) {
     if (!can.agendaWrite) return;
     const d = col?.date ?? date;
-    const startMin = minutes ?? Math.max(range[0], 9 * 60);
+    const nowMin = d === today ? isoToMinutes(now.toISOString(), d, tz) : null;
+    const fallback = nowMin !== null ? Math.min(Math.ceil(nowMin / 15) * 15, 23 * 60) : Math.max(range[0], 9 * 60);
+    const startMin = minutes ?? fallback;
     const target = col ? columnTarget(col) : {};
+    const type = types?.[0];
+    const duration = type?.duration_minutes ?? 30;
     setDialog({
       defaults: {
         starts_at: minutesToISO(d, startMin, tz),
-        ends_at: minutesToISO(d, startMin + 30, tz),
+        ends_at: minutesToISO(d, Math.min(startMin + duration, 24 * 60), tz),
         dentist_id: target.dentist_id ?? (filterId || undefined),
         chair_id: target.chair_id,
+        type_id: type?.id ?? null,
       },
     });
   }
+
+  async function quickStatus(a: Appointment, s: Status) {
+    const res = await changeStatus(cabinetId, a, s);
+    if (!res.ok) {
+      toast(t("agenda.form.statusRefused"), "error");
+      return;
+    }
+    toast(t("agenda.form.statusChanged", { status: t(`agenda.status.${s}`) }), "info");
+  }
+
+  useShortcuts(
+    {
+      n: () => openNew(null),
+      t: () => setDate(today),
+      ArrowLeft: () => setDate(shiftDate(effectiveView, date, -1)),
+      ArrowRight: () => setDate(shiftDate(effectiveView, date, 1)),
+    },
+    !!dentists && !!data,
+  );
 
   async function onDrop(a: Appointment, col: GridColumn, start: number, end: number) {
     const target = columnTarget(col);
@@ -333,6 +363,7 @@ export function AgendaView() {
             onSlot={(col, m) => openNew(col, m)}
             onOpen={(a) => setDialog({ appointment: a })}
             onDrop={onDrop}
+            onQuickStatus={quickStatus}
           />
           {can.agendaWrite && <p className="mt-2 text-xs text-muted">{t("agenda.dragHint")}</p>}
         </>

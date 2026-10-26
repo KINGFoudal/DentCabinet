@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { AlertTriangle, Plus, Search } from "lucide-react";
+import { AlertTriangle, History, Plus, Search } from "lucide-react";
 import { localDb, type Row } from "@/lib/local/db";
 import { mutate } from "@/lib/sync/mutate";
 import { formatPhone, fullName, normalizeGuineaPhone } from "@/lib/format";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { matchesPatient, searchKey, sortPatients } from "../lib/search";
 import { findPhoneDuplicates } from "../lib/validation";
+import { rememberPatient, useRecentPatientIds } from "../lib/recent";
 
 // API publique conservée pour l'agenda et la facturation.
 export { matchesPatient, searchKey };
@@ -26,11 +27,14 @@ export function PatientPicker({
   onChange,
   allowCreate = true,
   autoFocus,
+  showRecent,
 }: {
   value: string | null;
   onChange: (patient: Row<"patients"> | null) => void;
   allowCreate?: boolean;
   autoFocus?: boolean;
+  /** Sans recherche saisie : propose d'abord les patients récemment ouverts. */
+  showRecent?: boolean;
 }) {
   const t = useT();
   const cabinetId = useCabinetId();
@@ -47,11 +51,22 @@ export function PatientPicker({
     () => localDb().patients.where("cabinet_id").equals(cabinetId).filter((p) => !p.deleted_at).toArray(),
     [cabinetId],
   );
+  const recentIds = useRecentPatientIds(cabinetId);
   const selected = useMemo(() => patients?.find((p) => p.id === value) ?? null, [patients, value]);
-  const results = useMemo(
-    () => sortPatients((patients ?? []).filter((p) => matchesPatient(p, query)), "name").slice(0, 8),
-    [patients, query],
-  );
+  const recent = useMemo(() => {
+    if (!showRecent || query.trim()) return [];
+    const byId = new Map((patients ?? []).map((p) => [p.id, p]));
+    return recentIds.map((id) => byId.get(id)).filter((p): p is Row<"patients"> => !!p);
+  }, [showRecent, query, patients, recentIds]);
+  const results = useMemo(() => {
+    if (recent.length) return recent;
+    return sortPatients((patients ?? []).filter((p) => matchesPatient(p, query)), "name").slice(0, 8);
+  }, [patients, query, recent]);
+
+  const pick = (p: Row<"patients">) => {
+    rememberPatient(cabinetId, p.id);
+    onChange(p);
+  };
   const duplicates = useMemo(() => findPhoneDuplicates(patients ?? [], phone), [patients, phone]);
 
   if (selected) {
@@ -86,12 +101,22 @@ export function PatientPicker({
       created_by: user?.id ?? null,
     });
     setCreating(false);
-    onChange(p);
+    pick(p);
   }
 
   if (creating) {
     return (
-      <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+      <div
+        className="flex flex-col gap-3 rounded-lg border border-border p-3"
+        onKeyDown={(e) => {
+          // Entrée crée le patient (et n'enregistre pas le formulaire qui contient le sélecteur).
+          if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+            e.preventDefault();
+            e.stopPropagation();
+            void create();
+          }
+        }}
+      >
         <div className="grid grid-cols-2 gap-2">
           <Field label={t("patients.fields.firstName")} required error={errors.first}>
             {(p) => <Input {...p} value={first} onChange={(e) => setFirst(e.target.value)} autoFocus />}
@@ -112,7 +137,7 @@ export function PatientPicker({
             <ul className="mt-1">
               {duplicates.slice(0, 3).map((d) => (
                 <li key={d.id}>
-                  <button type="button" className="text-left font-medium text-primary underline" onClick={() => onChange(d)}>
+                  <button type="button" className="text-left font-medium text-primary underline" onClick={() => pick(d)}>
                     {fullName(d)}
                   </button>{" "}
                   <span className="text-muted">{d.file_number ?? t("patients.provisional")}</span>
@@ -142,14 +167,28 @@ export function PatientPicker({
           value={query}
           autoFocus={autoFocus}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            // Entrée choisit le premier résultat.
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.stopPropagation();
+              if (results[0] && query.trim()) pick(results[0]);
+            }
+          }}
           placeholder={t("patients.searchPlaceholder")}
           aria-label={t("common.search")}
         />
       </div>
+      {recent.length > 0 && (
+        <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+          <History className="size-3.5" />
+          {t("patients.recent.title")}
+        </p>
+      )}
       <ul className="max-h-60 divide-y divide-border overflow-y-auto rounded-lg border border-border">
         {results.map((p) => (
           <li key={p.id}>
-            <button type="button" onClick={() => onChange(p)} className="w-full px-3 py-2 text-left hover:bg-primary-soft">
+            <button type="button" onClick={() => pick(p)} className="w-full px-3 py-2 text-left hover:bg-primary-soft">
               <div className="text-sm font-medium">{fullName(p)}</div>
               <div className="text-xs text-muted">
                 {[p.file_number ?? t("patients.provisional"), formatPhone(p.phone)].filter(Boolean).join(" · ")}

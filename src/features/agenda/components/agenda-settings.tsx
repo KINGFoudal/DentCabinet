@@ -13,11 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, PageHeader } from "@/components/ui/card";
 import { Checkbox, Field, Input, Select } from "@/components/ui/input";
 import { Tabs } from "@/components/ui/tabs";
+import { TimeSelect } from "@/components/ui/time-select";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { RequirePermission } from "@/components/app/app-gate";
 import { useAppointmentTypes, useChairs, useDentists } from "../lib/data";
-import { hhmmToMinutes } from "../lib/grid";
+import { hhmmToMinutes, snap, SNAP_MINUTES } from "../lib/grid";
 // Conversion heure locale du cabinet -> UTC (logique partagée avec les Edge Functions).
 import { zonedTime } from "../../../../supabase/functions/_shared/reminders";
 import { useReportWrite } from "@/lib/sync/report-write";
@@ -213,15 +214,18 @@ function TypesEditor() {
                 <Input
                   {...p}
                   type="number"
-                  min={5}
+                  min={SNAP_MINUTES}
                   max={480}
-                  step={5}
+                  step={SNAP_MINUTES}
                   defaultValue={ty.duration_minutes}
                   disabled={!write}
                   onBlur={(e) => {
-                    const v = Math.round(Number(e.target.value));
-                    if (v >= 5 && v <= 480 && v !== ty.duration_minutes) report(mutate("appointment_types", { id: ty.id, duration_minutes: v }));
-                    else e.target.value = String(ty.duration_minutes);
+                    // Durées par pas de 5 minutes (37 -> 35).
+                    const v = snap(Number(e.target.value));
+                    if (v >= SNAP_MINUTES && v <= 480) {
+                      e.target.value = String(v);
+                      if (v !== ty.duration_minutes) report(mutate("appointment_types", { id: ty.id, duration_minutes: v }));
+                    } else e.target.value = String(ty.duration_minutes);
                   }}
                 />
               )}
@@ -374,30 +378,18 @@ function SchedulesEditor() {
                   {list.length === 0 && <span className="pt-2 text-sm text-muted">{t("agenda.settings.dayOff")}</span>}
                   {list.map((r) => (
                     <div key={r.id} className="flex items-center gap-2">
-                      <Input
-                        type="time"
-                        step={900}
+                      <TimeSelect
                         aria-label={t("agenda.form.start")}
-                        defaultValue={hm(r.start_time)}
+                        value={hm(r.start_time)}
                         disabled={!writable}
-                        className="max-w-36"
-                        onBlur={async (e) => {
-                          if (e.target.value === hm(r.start_time)) return;
-                          if (!(await update(r.id, "start_time", e.target.value, hm(r.end_time)))) e.target.value = hm(r.start_time);
-                        }}
+                        onChange={(v) => v !== hm(r.start_time) && void update(r.id, "start_time", v, hm(r.end_time))}
                       />
                       <span className="text-muted">–</span>
-                      <Input
-                        type="time"
-                        step={900}
+                      <TimeSelect
                         aria-label={t("agenda.form.end")}
-                        defaultValue={hm(r.end_time)}
+                        value={hm(r.end_time)}
                         disabled={!writable}
-                        className="max-w-36"
-                        onBlur={async (e) => {
-                          if (e.target.value === hm(r.end_time)) return;
-                          if (!(await update(r.id, "end_time", e.target.value, hm(r.start_time)))) e.target.value = hm(r.end_time);
-                        }}
+                        onChange={(v) => v !== hm(r.end_time) && void update(r.id, "end_time", v, hm(r.start_time))}
                       />
                       {writable && (
                         <Button variant="ghost" size="sm" aria-label={t("common.delete")} onClick={() => softDelete("practitioner_schedules", r.id)}>
@@ -531,10 +523,20 @@ function TimeOffEditor() {
                 {(p) => <Input {...p} value={reason} onChange={(e) => setReason(e.target.value)} />}
               </Field>
               <Field label={t("agenda.settings.from")} required>
-                {(p) => <Input {...p} type="datetime-local" step={900} value={from} onChange={(e) => setFrom(e.target.value)} />}
+                {(p) => (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input {...p} type="date" className="w-auto min-w-36 flex-1" value={from.slice(0, 10)} onChange={(e) => e.target.value && setFrom(`${e.target.value}T${from.slice(11, 16)}`)} />
+                    <TimeSelect aria-label={t("agenda.settings.fromTime")} value={from.slice(11, 16)} onChange={(v) => setFrom(`${from.slice(0, 10)}T${v}`)} />
+                  </div>
+                )}
               </Field>
               <Field label={t("agenda.settings.to")} required>
-                {(p) => <Input {...p} type="datetime-local" step={900} value={to} onChange={(e) => setTo(e.target.value)} />}
+                {(p) => (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input {...p} type="date" className="w-auto min-w-36 flex-1" value={to.slice(0, 10)} onChange={(e) => e.target.value && setTo(`${e.target.value}T${to.slice(11, 16)}`)} />
+                    <TimeSelect aria-label={t("agenda.settings.toTime")} value={to.slice(11, 16)} onChange={(v) => setTo(`${to.slice(0, 10)}T${v}`)} />
+                  </div>
+                )}
               </Field>
               <div className="sm:col-span-2">
                 <Button type="submit" disabled={!canCabinetWide && !target}>

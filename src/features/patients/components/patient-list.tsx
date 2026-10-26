@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { AlertTriangle, ChevronRight, Plus, Search, Users } from "lucide-react";
+import { AlertTriangle, ChevronRight, History, Plus, Search, Users } from "lucide-react";
 import { localDb } from "@/lib/local/db";
 import { mutate } from "@/lib/sync/mutate";
 import { ageFrom, formatDate, formatPhone, fullName } from "@/lib/format";
@@ -18,6 +18,10 @@ import { Table, Td, Th } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { filterPatient, matchesPatient, sortPatients, type PatientFilter, type PatientSort } from "../lib/search";
 import { PatientFormDialog } from "./patient-form-dialog";
+import { QuickPatientDialog } from "./quick-patient-dialog";
+import { useRecentPatientIds } from "../lib/recent";
+import type { PatientForm } from "../lib/validation";
+import { SEARCH_ATTR, useShortcuts } from "@/components/app/shortcuts";
 import { Avatar } from "./avatar";
 import { useReportWrite } from "@/lib/sync/report-write";
 
@@ -47,7 +51,24 @@ export function PatientList() {
   const [sort, setSort] = useState<PatientSort>("name");
   const [filter, setFilter] = useState<PatientFilter>("all");
   const [limit, setLimit] = useState(PAGE_SIZE);
+  // Création rapide (prénom, nom, téléphone) puis formulaire complet si besoin.
   const [creating, setCreating] = useState(false);
+  const [fullForm, setFullForm] = useState<Partial<PatientForm> | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const params = useSearchParams();
+  const recentIds = useRecentPatientIds(cabinetId);
+
+
+  // ?nouveau=1 (tableau de bord, raccourci « p ») ouvre la création rapide.
+  useEffect(() => {
+    if (params.get("nouveau") && can.patientsWrite) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ouverture demandée par l'URL
+      setCreating(true);
+      router.replace("/app/patients");
+    }
+  }, [params, can.patientsWrite, router]);
+
+  useShortcuts({ p: () => can.patientsWrite && setCreating(true) });
 
   useEffect(() => {
     const p = readPrefs();
@@ -69,12 +90,26 @@ export function PatientList() {
     return new Set(rows.filter((m) => !m.deleted_at && m.alerts.length > 0).map((m) => m.patient_id));
   }, [cabinetId, can.medical]);
 
+  // Ordinateur : le curseur est directement dans la recherche (pas sur mobile : clavier).
+  const loaded = patients !== undefined;
+  useEffect(() => {
+    try {
+      if (loaded && window.matchMedia("(pointer: fine)").matches) searchRef.current?.focus();
+    } catch {}
+  }, [loaded]);
+
   const activeCount = useMemo(() => (patients ?? []).filter((p) => !p.deleted_at).length, [patients]);
   const results = useMemo(() => {
     const alerts = alertIds ?? new Set<string>();
     const list = (patients ?? []).filter((p) => filterPatient(p, filter, alerts) && matchesPatient(p, query));
     return sortPatients(list, sort);
   }, [patients, alertIds, filter, query, sort]);
+
+  const recent = (() => {
+    if (query.trim() || !patients) return [];
+    const byId = new Map(patients.filter((p) => !p.deleted_at).map((p) => [p.id, p]));
+    return recentIds.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p).slice(0, 6);
+  })();
 
   if (!patients) return <PageSpinner />;
 
@@ -105,6 +140,8 @@ export function PatientList() {
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <Input
+            ref={searchRef}
+            {...{ [SEARCH_ATTR]: "" }}
             type="search"
             className="pl-9"
             value={query}
@@ -133,6 +170,24 @@ export function PatientList() {
           </Select>
         </div>
       </div>
+
+      {recent.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
+            <History className="size-3.5" />
+            {t("patients.recent.title")}
+          </span>
+          {recent.map((p) => (
+            <Link
+              key={p.id}
+              href={`/app/patients/fiche?id=${p.id}`}
+              className="max-w-48 truncate rounded-full border border-border bg-surface px-3 py-1 text-sm hover:border-primary hover:text-primary"
+            >
+              {fullName(p)}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {activeCount === 0 && filter !== "archived" ? (
         <Card>
@@ -262,10 +317,20 @@ export function PatientList() {
         </>
       )}
 
-      <PatientFormDialog
+      <QuickPatientDialog
         open={creating}
         onClose={() => setCreating(false)}
         initial={initialFromQuery(query)}
+        onSaved={(p) => router.push(`/app/patients/fiche?id=${p.id}`)}
+        onFull={(values) => {
+          setCreating(false);
+          setFullForm(values);
+        }}
+      />
+      <PatientFormDialog
+        open={!!fullForm}
+        onClose={() => setFullForm(null)}
+        initial={fullForm ?? undefined}
         onSaved={(p) => router.push(`/app/patients/fiche?id=${p.id}`)}
       />
     </>

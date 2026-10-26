@@ -3,8 +3,7 @@
 import { Copy, Plus, X } from "lucide-react";
 import { useT } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/components/ui/cn";
+import { TimeSelect } from "@/components/ui/time-select";
 import { rangesValid, WEEKDAYS, type OpeningHours, type Range } from "../opening-hours";
 
 /** Éditeur des horaires : pour chaque jour, zéro (fermé) ou plusieurs plages horaires. */
@@ -43,22 +42,20 @@ export function OpeningHoursEditor({
               {ranges.length === 0 && <span className="hidden pt-2 text-sm text-muted sm:block">{t("settings.cabinet.closed")}</span>}
               {ranges.map((r, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Input
-                    type="time"
-                    aria-label={`${t(`settings.days.${day}`)} ${i + 1}`}
+                  <TimeSelect
+                    aria-label={`${t(`settings.days.${day}`)} ${i + 1} ${t("settings.cabinet.rangeStart")}`}
                     value={r[0]}
                     disabled={disabled}
-                    onChange={(e) => setDay(day, ranges.map((x, j) => (j === i ? [e.target.value, x[1]] : x)))}
-                    className={cn("w-32! sm:w-36!", invalid && "border-danger")}
+                    aria-invalid={invalid || undefined}
+                    onChange={(v) => setDay(day, ranges.map((x, j) => (j === i ? [v, x[1]] : x)))}
                   />
                   <span className="text-muted">–</span>
-                  <Input
-                    type="time"
-                    aria-label={`${t(`settings.days.${day}`)} ${i + 1} fin`}
+                  <TimeSelect
+                    aria-label={`${t(`settings.days.${day}`)} ${i + 1} ${t("settings.cabinet.rangeEnd")}`}
                     value={r[1]}
                     disabled={disabled}
-                    onChange={(e) => setDay(day, ranges.map((x, j) => (j === i ? [x[0], e.target.value] : x)))}
-                    className={cn("w-32! sm:w-36!", invalid && "border-danger")}
+                    aria-invalid={invalid || undefined}
+                    onChange={(v) => setDay(day, ranges.map((x, j) => (j === i ? [x[0], v] : x)))}
                   />
                   <Button
                     variant="ghost"

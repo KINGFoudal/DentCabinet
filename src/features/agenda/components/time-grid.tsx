@@ -4,17 +4,21 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEve
 import type { Row } from "@/lib/local/db";
 import { useI18n } from "@/components/i18n-provider";
 import { cn } from "@/components/ui/cn";
+import { Check } from "lucide-react";
 import {
   applyDrag,
+  gridLines,
   isActiveStatus,
   isoToMinutes,
   layoutLanes,
   minutesToHHMM,
+  primaryNextStatus,
   pxToMinutes,
-  snap,
+  slotAt,
   unavailableIntervals,
   type AvailabilityCtx,
   type DragMode,
+  type Status,
 } from "../lib/grid";
 import { appointmentLabel, type Appointment } from "../lib/data";
 
@@ -62,6 +66,7 @@ export function TimeGrid({
   onSlot,
   onOpen,
   onDrop,
+  onQuickStatus,
 }: {
   columns: GridColumn[];
   appointments: Appointment[];
@@ -78,6 +83,8 @@ export function TimeGrid({
   onSlot: (col: GridColumn, minutes: number) => void;
   onOpen: (a: Appointment) => void;
   onDrop: (a: Appointment, col: GridColumn, start: number, end: number) => void;
+  /** Action en un clic (Arrivé -> En soin -> Terminé) affichée sur le RDV. */
+  onQuickStatus?: (a: Appointment, status: Status) => void;
 }) {
   const { t } = useI18n();
   const [from, to] = range;
@@ -209,13 +216,16 @@ export function TimeGrid({
 
   function slotClick(e: ReactMouseEvent<HTMLDivElement>, col: GridColumn) {
     if (suppressClick.current || !canEdit) return;
+    // Un clic sur un RDV ou sur son bouton ne crée rien.
+    if ((e.target as HTMLElement).closest("[data-appointment]")) return;
     const r = e.currentTarget.getBoundingClientRect();
-    const minutes = from + Math.floor(pxToMinutes(e.clientY - r.top, hourPx) / 15) * 15;
-    onSlot(col, snap(minutes));
+    onSlot(col, slotAt(e.clientY - r.top, from, hourPx));
   }
 
   const hours: number[] = [];
   for (let m = Math.ceil(from / 60) * 60; m < to; m += 60) hours.push(m);
+  const lines = gridLines(from, to);
+  const narrow = minColWidth < 120;
   const top = (min: number) => ((min - from) / 60) * hourPx;
 
   function block(a: Appointment, start: number, end: number, style: CSSProperties, colKey: string, ghost = false) {
@@ -224,6 +234,8 @@ export function TimeGrid({
     const inactive = !isActiveStatus(a.status);
     const compact = end - start <= 20;
     const dragging = drag?.id === a.id && drag.active;
+    const quick = ghost ? null : primaryNextStatus(a.status);
+    const showQuick = canEdit && !!onQuickStatus && !!quick && end - start >= 20;
     return (
       <div
         key={ghost ? `ghost-${a.id}` : a.id}
@@ -253,7 +265,7 @@ export function TimeGrid({
           backgroundColor: `color-mix(in srgb, ${color} 16%, var(--surface))`,
         }}
       >
-        <div className={cn("truncate font-medium", compact ? "py-0" : "pt-0.5")}>
+        <div className={cn("truncate font-medium", compact ? "py-0" : "pt-0.5", showQuick && (narrow ? "pr-7" : "pr-20"))}>
           {!compact && <span className="mr-1 text-muted">{minutesToHHMM(start)}</span>}
           {appointmentLabel(a, patients)}
         </div>
@@ -261,6 +273,24 @@ export function TimeGrid({
           <div className="truncate text-muted">
             {[type?.name, t(`agenda.status.${a.status}`)].filter(Boolean).join(" · ")}
           </div>
+        )}
+        {showQuick && quick && (
+          <button
+            type="button"
+            title={t(`agenda.action.${quick}`)}
+            aria-label={`${t(`agenda.action.${quick}`)} : ${appointmentLabel(a, patients)}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuickStatus?.(a, quick);
+            }}
+            className="absolute right-0.5 top-0.5 z-10 inline-flex h-6 items-center gap-0.5 rounded-md border border-border bg-surface px-1 text-[11px] font-medium text-primary shadow-sm hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <Check className="size-3.5" />
+            <span className={cn(narrow && "sr-only")}>{t(`agenda.action.${quick}`)}</span>
+          </button>
         )}
         {canEdit && !ghost && !inactive && (
           <div
@@ -335,8 +365,15 @@ export function TimeGrid({
                     />
                   ) : null,
                 )}
-                {hours.map((m) => (
-                  <div key={m} className="pointer-events-none absolute inset-x-0 border-t border-border/70" style={{ top: top(m) }} />
+                {lines.map((l) => (
+                  <div
+                    key={l.minutes}
+                    className={cn(
+                      "pointer-events-none absolute inset-x-0 border-t",
+                      l.kind === "hour" ? "border-border" : l.kind === "half" ? "border-border/60" : "border-dashed border-border/30",
+                    )}
+                    style={{ top: top(l.minutes) }}
+                  />
                 ))}
                 {items.map(({ a, start, end }) => {
                   const lane = lanes.get(a.id) ?? { lane: 0, lanes: 1 };
