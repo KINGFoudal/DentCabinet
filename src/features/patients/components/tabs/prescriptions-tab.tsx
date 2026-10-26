@@ -6,6 +6,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Copy, ListPlus, Pencil, Pill, Plus, Printer, Receipt, Trash2 } from "lucide-react";
 import { localDb, type Row } from "@/lib/local/db";
 import { softDelete } from "@/lib/sync/mutate";
+import { useReportWrite } from "@/lib/sync/report-write";
 import { formatDate } from "@/lib/format";
 import { useCabinet, useCabinetId } from "@/lib/cabinet/cabinet-provider";
 import { useI18n } from "@/components/i18n-provider";
@@ -24,6 +25,7 @@ type Rx = Row<"prescriptions">;
 export function PrescriptionsTab({ patientId }: { patientId: string }) {
   const { t, locale } = useI18n();
   const toast = useToast();
+  const report = useReportWrite();
   const cabinetId = useCabinetId();
   const { can, cabinet } = useCabinet();
   const names = useStaffNames(cabinetId);
@@ -105,10 +107,9 @@ export function PrescriptionsTab({ patientId }: { patientId: string }) {
       <ConfirmDialog
         open={!!deleting}
         onClose={() => setDeleting(null)}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (!deleting) return;
-          await softDelete("prescriptions", deleting.id);
-          toast(t("patients.rx.deleted"));
+          report(softDelete("prescriptions", deleting.id).then(() => toast(t("patients.rx.deleted"))));
         }}
         title={t("patients.rx.deleteTitle")}
         message={deleting ? parseRxItems(deleting.items).map((i) => i.drug).join(", ") : ""}

@@ -109,7 +109,7 @@ export function AdminPage() {
         title={t("admin.title")}
         subtitle={t("admin.subtitle")}
         actions={
-          <Button variant="secondary" onClick={() => void load()} loading={loading} aria-label="Actualiser">
+          <Button variant="secondary" onClick={() => void load()} loading={loading} aria-label={t("common.refresh")} title={t("common.refresh")}>
             <RefreshCw className="size-4" />
           </Button>
         }

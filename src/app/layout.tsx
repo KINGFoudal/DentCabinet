@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { translate } from "@/i18n/messages";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: { default: "Nimba Dentaire", template: "%s | Nimba Dentaire" },
-  description: "Logiciel de gestion de cabinet dentaire",
+  description: translate("fr", "meta.description"),
   applicationName: "Nimba Dentaire",
 };
 

@@ -10,7 +10,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
 import { cn } from "@/components/ui/cn";
 import { formatGNF, normalizeGuineaPhone, parseGNF } from "@/lib/format";
-import { initiatePayment, pollPaymentStatus, validAmount, type Provider } from "@/features/portal/lib/payments";
+import { initiatePayment, validAmount, type Provider } from "@/features/portal/lib/payments";
+import { pollPaymentStatus } from "@/lib/payments/poll";
 import { balance, type PortalInvoice } from "@/features/portal/lib/portal-data";
 
 type Phase = "form" | "pending" | "succeeded" | "failed" | "expired" | "timeout" | "unavailable";

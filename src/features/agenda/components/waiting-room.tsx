@@ -12,10 +12,11 @@ import { Card, CardHeader, EmptyState, PageHeader, PageSpinner } from "@/compone
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/components/ui/cn";
 import { statusTone, waitingMinutes, type Status } from "../lib/grid";
-import { appointmentLabel, useAppointmentTypes, useAppointmentsInRange, useChairs, useDentists, type Appointment } from "../lib/data";
+import { appointmentLabel, appointmentLabelLocal, useAppointmentTypes, useAppointmentsInRange, useChairs, useDentists, type Appointment } from "../lib/data";
 import { changeStatus } from "../lib/actions";
 import { useNow } from "../lib/hooks";
 import { AppointmentDialog } from "./appointment-dialog";
+import { FinishConsultationButton } from "@/features/patients/components/consultation";
 
 type Group = { key: string; title: string; items: Appointment[]; actions: Status[] };
 
@@ -59,8 +60,12 @@ export function WaitingRoom() {
 
   async function act(a: Appointment, s: Status) {
     const res = await changeStatus(cabinetId, a, s);
-    if (!res.ok) toast(t("agenda.form.conflictDentist", { from: formatTime(res.conflicts[0].appointment.starts_at, locale, tz), to: formatTime(res.conflicts[0].appointment.ends_at, locale, tz), who: "—" }), "error");
-    else toast(t("agenda.form.statusChanged", { status: t(`agenda.status.${s}`) }), "info");
+    if (!res.ok) {
+      const c = res.conflicts[0];
+      const who = await appointmentLabelLocal(c.appointment);
+      const key = c.reason === "dentist" ? "agenda.form.conflictDentist" : "agenda.form.conflictChair";
+      toast(t(key, { from: formatTime(c.appointment.starts_at, locale, tz), to: formatTime(c.appointment.ends_at, locale, tz), who }), "error");
+    } else toast(t("agenda.form.statusChanged", { status: t(`agenda.status.${s}`) }), "info");
   }
 
   const total = groups.reduce((n, g) => n + g.items.length, 0);
@@ -97,6 +102,8 @@ export function WaitingRoom() {
                           ? Math.floor((now.getTime() - new Date(a.starts_at).getTime()) / 60000)
                           : null;
                       const type = a.type_id ? typeMap.get(a.type_id) : undefined;
+                      // Le dentiste qui facture termine la consultation (facture + ordonnance) plutôt que « Terminé ».
+                      const consult = !!a.patient_id && (a.status === "arrived" || a.status === "in_treatment") && can.clinicalWrite && can.billingWrite;
                       return (
                         <li key={a.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center">
                           <button type="button" className="flex min-w-0 flex-1 items-start gap-3 text-left" onClick={() => setOpen(a)}>
@@ -124,10 +131,11 @@ export function WaitingRoom() {
                             </span>
                           </button>
                           <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                            {consult && a.patient_id && <FinishConsultationButton patientId={a.patient_id} appointmentId={a.id} className="min-h-10 sm:min-h-8" />}
                             {g.actions.length === 0 && <Badge tone={statusTone(a.status)}>{t(`agenda.status.${a.status}`)}</Badge>}
                             {can.agendaWrite &&
                               g.actions.map((s) => (
-                                <Button key={s} size="sm" variant={s === "no_show" ? "secondary" : "primary"} className="min-h-10 sm:min-h-8" onClick={() => act(a, s)}>
+                                <Button key={s} size="sm" variant={s === "no_show" || (consult && s === "done") ? "secondary" : "primary"} className="min-h-10 sm:min-h-8" onClick={() => act(a, s)}>
                                   {t(`agenda.action.${s}`)}
                                 </Button>
                               ))}

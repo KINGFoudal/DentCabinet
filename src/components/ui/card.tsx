@@ -1,5 +1,8 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "./cn";
+import { Spinner } from "./spinner";
+
+export { Spinner };
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("rounded-xl border border-border bg-surface", className)} {...props} />;
@@ -38,16 +41,6 @@ export function EmptyState({ icon, title, description, action }: { icon?: ReactN
       {description && <p className="max-w-sm text-sm text-muted">{description}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>
-  );
-}
-
-export function Spinner({ className }: { className?: string }) {
-  return (
-    <span
-      role="status"
-      aria-label="Chargement"
-      className={cn("inline-block size-5 animate-spin rounded-full border-2 border-primary border-r-transparent", className)}
-    />
   );
 }
 

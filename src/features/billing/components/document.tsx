@@ -6,6 +6,7 @@ import type { Row } from "@/lib/local/db";
 import { lineTotal } from "../lib/totals";
 import type { Patient } from "../data";
 import { useBilling } from "./common";
+import { cn } from "@/components/ui/cn";
 
 /** Styles d'impression (A4) communs aux devis, factures et reçus. */
 export function PrintStyles() {
@@ -89,6 +90,9 @@ export function PatientBlock({ patient }: { patient: Patient | undefined }) {
   );
 }
 
+/** Colonnes secondaires : masquées sur téléphone, toujours imprimées. */
+const wide = "hidden sm:table-cell print:table-cell";
+
 type Line = { id: string; label: string; tooth: number | null; quantity: number; unit_price_gnf: number; deleted_at?: string | null };
 
 /** Tableau des lignes d'un devis ou d'une facture, avec total. */
@@ -102,19 +106,25 @@ export function LinesTable({ lines, total, provisional, footer }: { lines: reado
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase text-muted">
               <th className="py-2 pr-2 font-medium">{t("billing.fields.label")}</th>
-              <th className="px-2 py-2 text-center font-medium">{t("billing.fields.tooth")}</th>
-              <th className="px-2 py-2 text-right font-medium">{t("billing.fields.quantityShort")}</th>
-              <th className="px-2 py-2 text-right font-medium">{t("billing.fields.unitPrice")}</th>
+              <th className={cn(wide, "px-2 py-2 text-center font-medium")}>{t("billing.fields.tooth")}</th>
+              <th className={cn(wide, "px-2 py-2 text-right font-medium")}>{t("billing.fields.quantityShort")}</th>
+              <th className={cn(wide, "px-2 py-2 text-right font-medium")}>{t("billing.fields.unitPrice")}</th>
               <th className="py-2 pl-2 text-right font-medium">{t("billing.fields.amount")}</th>
             </tr>
           </thead>
           <tbody>
             {live.map((l) => (
               <tr key={l.id} className="border-b border-border">
-                <td className="py-2 pr-2">{l.label}</td>
-                <td className="px-2 py-2 text-center">{l.tooth ?? ""}</td>
-                <td className="px-2 py-2 text-right">{l.quantity}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-right">{gnf(l.unit_price_gnf)}</td>
+                <td className="py-2 pr-2">
+                  {l.label}
+                  {/* Téléphone : dent, quantité et prix unitaire sous le libellé, pour que le montant reste visible. */}
+                  <span className="block text-xs text-muted sm:hidden print:hidden">
+                    {[l.tooth != null && `${t("billing.fields.tooth")} ${l.tooth}`, `${l.quantity} × ${gnf(l.unit_price_gnf)}`].filter(Boolean).join(" · ")}
+                  </span>
+                </td>
+                <td className={cn(wide, "px-2 py-2 text-center")}>{l.tooth ?? ""}</td>
+                <td className={cn(wide, "px-2 py-2 text-right")}>{l.quantity}</td>
+                <td className={cn(wide, "whitespace-nowrap px-2 py-2 text-right")}>{gnf(l.unit_price_gnf)}</td>
                 <td className="whitespace-nowrap py-2 pl-2 text-right">{gnf(lineTotal(l))}</td>
               </tr>
             ))}

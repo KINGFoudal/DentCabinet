@@ -78,7 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <GlobalShortcuts />
             <SyncStatus />
             <Select
-              aria-label="Langue"
+              aria-label={t("common.language")}
               value={locale}
               onChange={(e) => setLocale(e.target.value as "fr" | "en")}
               className="h-9 w-16 px-2"

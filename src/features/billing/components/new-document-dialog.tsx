@@ -49,8 +49,9 @@ function NewDocumentForm({ kind, initialPatientId, onClose }: { kind: Kind; init
   const toast = useToast();
   const dentists = useDentists(cabinetId);
   const [patientId, setPatientId] = useState<string | null>(initialPatientId);
-  const [source, setSource] = useState<Source>("manual");
-  const [planId, setPlanId] = useState<string>("");
+  // null = choix automatique : facture depuis les actes réalisés non facturés s'il y en a, sinon saisie libre.
+  const [sourceChoice, setSource] = useState<Source | null>(null);
+  const [planChoice, setPlanId] = useState<string | null>(null);
   const [quoteId, setQuoteId] = useState<string>("");
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [dentistId, setDentistId] = useState<string>(can.isDentist && userId ? userId : "");
@@ -74,13 +75,6 @@ function NewDocumentForm({ kind, initialPatientId, onClose }: { kind: Kind; init
     return { plans: livePlans, planItems, invoices: liveInvoices, invoiceItems, accepted, quoteItems };
   }, [patientId, cabinetId]);
 
-  /** Éléments de plan proposés : prévus (devis) ou réalisés non facturés (facture). */
-  const candidates = useMemo(() => {
-    if (!data || !planId) return [];
-    const items = data.planItems.filter((i) => i.plan_id === planId);
-    return kind === "quote" ? plannedItems(items) : uninvoicedDoneItems(items, data.invoiceItems, data.invoices);
-  }, [data, planId, kind]);
-
   const plansWithItems = useMemo(() => {
     if (!data) return [];
     return data.plans.filter((p) => {
@@ -88,6 +82,16 @@ function NewDocumentForm({ kind, initialPatientId, onClose }: { kind: Kind; init
       return (kind === "quote" ? plannedItems(items) : uninvoicedDoneItems(items, data.invoiceItems, data.invoices)).length > 0;
     });
   }, [data, kind]);
+
+  const source: Source = sourceChoice ?? (kind === "invoice" && plansWithItems.length > 0 ? "plan" : "manual");
+  const planId = planChoice ?? (source === "plan" && plansWithItems.length > 0 ? plansWithItems[0].id : "");
+
+  /** Éléments de plan proposés : prévus (devis) ou réalisés non facturés (facture). */
+  const candidates = useMemo(() => {
+    if (!data || !planId) return [];
+    const items = data.planItems.filter((i) => i.plan_id === planId);
+    return kind === "quote" ? plannedItems(items) : uninvoicedDoneItems(items, data.invoiceItems, data.invoices);
+  }, [data, planId, kind]);
 
   const lines: DocLine[] = useMemo(() => {
     if (!data) return [];
@@ -158,8 +162,8 @@ function NewDocumentForm({ kind, initialPatientId, onClose }: { kind: Kind; init
             value={patientId}
             onChange={(p) => {
               setPatientId(p?.id ?? null);
-              setSource("manual");
-              setPlanId("");
+              setSource(null);
+              setPlanId(null);
               setQuoteId("");
             }}
             autoFocus={!patientId}
@@ -182,7 +186,7 @@ function NewDocumentForm({ kind, initialPatientId, onClose }: { kind: Kind; init
                   onChange={() => {
                     setSource(s.value);
                     setExcluded(new Set());
-                    if (s.value === "plan" && plansWithItems.length === 1) setPlanId(plansWithItems[0].id);
+                    if (s.value === "plan") setPlanId(plansWithItems.length === 1 ? plansWithItems[0].id : null);
                     if (s.value === "quote" && data?.accepted.length === 1) setQuoteId(data.accepted[0].id);
                   }}
                 />

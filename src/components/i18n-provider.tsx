@@ -25,6 +25,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.lang = locale;
+    // Description de la page (les métadonnées serveur sont en français).
+    // Seulement la description générique : une page qui a la sienne (ex. /c/[slug]) la garde.
+    const generic = new Set([translate("fr", "meta.description"), translate("en", "meta.description")]);
+    document.querySelectorAll('meta[name="description"]').forEach((m) => {
+      if (generic.has(m.getAttribute("content") ?? "")) m.setAttribute("content", translate(locale, "meta.description"));
+    });
   }, [locale]);
 
   const setLocale = useCallback((l: Locale) => {

@@ -19,7 +19,7 @@ import { Checkbox, Field, Input, Select } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { documentPath, formatBytes, MAX_UPLOAD_BYTES } from "../../lib/clinical";
 import { compressImage } from "../../lib/image";
-import { useOnline } from "../../lib/use-online";
+import { useOnline } from "@/lib/use-online";
 
 type Doc = Row<"documents"> & { _dirty?: 0 | 1 };
 type Kind = Enums<"document_kind">;
