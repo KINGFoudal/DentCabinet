@@ -1,8 +1,8 @@
-import { paymentsMode, sandboxSecret } from "./config";
+import { paymentsMode, sandboxAllowed, sandboxSecret } from "./config";
 import { mtnMomoAdapter, mtnMomoConfigFromEnv } from "./providers/mtn-momo";
 import { orangeMoneyAdapter, orangeMoneyConfigFromEnv } from "./providers/orange-money";
 import { sandboxAdapter } from "./providers/sandbox";
-import type { PaymentProviderAdapter, ProviderId } from "./types";
+import { PaymentProviderError, type PaymentProviderAdapter, type ProviderId } from "./types";
 
 /**
  * Choisit l'adaptateur d'un opérateur selon le mode.
@@ -10,7 +10,13 @@ import type { PaymentProviderAdapter, ProviderId } from "./types";
  * exemple selon une variable PAYMENTS_GATEWAY.
  */
 export function providerAdapter(provider: ProviderId, env: Record<string, string | undefined> = process.env): PaymentProviderAdapter {
-  if (paymentsMode(env) === "sandbox") return sandboxAdapter(provider, sandboxSecret(env));
+  const mode = paymentsMode(env);
+  if (mode === "sandbox") {
+    // Jamais d'opérateur simulé en production ni sans secret dédié.
+    if (!sandboxAllowed(env)) throw new PaymentProviderError("payments_not_configured");
+    return sandboxAdapter(provider, sandboxSecret(env));
+  }
+  if (mode !== "live") throw new PaymentProviderError("payments_not_configured");
   switch (provider) {
     case "orange_money":
       return orangeMoneyAdapter(orangeMoneyConfigFromEnv(env));

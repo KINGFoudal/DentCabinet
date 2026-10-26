@@ -1,6 +1,9 @@
 /**
  * Envoi des messages : WhatsApp Business Cloud API (modèles pré-approuvés) et email (Resend).
- * Sans clés configurées, mode « sandbox » : rien n'est envoyé, le résultat est simulé.
+ * Sans clés configurées :
+ *   - MESSAGING_MODE=sandbox (développement local uniquement) : rien n'est envoyé, le
+ *     résultat est simulé (identifiant « sandbox-… ») ;
+ *   - sinon : l'envoi échoue avec une erreur explicite (jamais de faux succès en production).
  * Aucune dépendance Deno : `fetch` est injectable pour les tests.
  */
 
@@ -10,6 +13,22 @@ type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 export type SendResult = { ok: true; providerId: string | null; sandbox: boolean } | { ok: false; error: string; sandbox: boolean };
 
 export const DEFAULT_GRAPH_VERSION = "v23.0";
+
+/** Délai maximal d'un appel à un fournisseur de messagerie. */
+export const SEND_TIMEOUT_MS = 10_000;
+
+/** Préfixe des identifiants de messages simulés. */
+export const SANDBOX_ID_PREFIX = "sandbox-";
+
+/** Erreur enregistrée dans le journal pour un envoi simulé (message non envoyé). */
+export const SANDBOX_NOTE = "sandbox: non envoyé (MESSAGING_MODE=sandbox)";
+
+/** Simulation explicitement demandée (jamais par défaut). */
+export function messagingSandbox(env: Env): boolean {
+  return env("MESSAGING_MODE") === "sandbox";
+}
+
+export type SendOptions = { sandbox?: boolean };
 
 export type WhatsAppConfig = {
   token: string;
@@ -69,13 +88,18 @@ export async function sendWhatsApp(
   cfg: WhatsAppConfig | null,
   payload: ReturnType<typeof whatsappTemplatePayload>,
   fetchFn: Fetch = fetch,
+  opts: SendOptions = {},
 ): Promise<SendResult> {
-  if (!cfg) return { ok: true, providerId: `sandbox-wa-${crypto.randomUUID()}`, sandbox: true };
+  if (!cfg) {
+    if (opts.sandbox) return { ok: true, providerId: `${SANDBOX_ID_PREFIX}wa-${crypto.randomUUID()}`, sandbox: true };
+    return { ok: false, error: "whatsapp not configured (WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID)", sandbox: false };
+  }
   try {
     const res = await fetchFn(`https://graph.facebook.com/${cfg.version}/${cfg.phoneNumberId}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${cfg.token}`, "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
     const json = (await res.json().catch(() => ({}))) as {
       messages?: { id: string }[];
@@ -103,8 +127,12 @@ export async function sendEmail(
   cfg: EmailConfig | null,
   msg: { to: string; subject: string; text: string; idempotencyKey?: string; fromName?: string },
   fetchFn: Fetch = fetch,
+  opts: SendOptions = {},
 ): Promise<SendResult> {
-  if (!cfg) return { ok: true, providerId: `sandbox-email-${crypto.randomUUID()}`, sandbox: true };
+  if (!cfg) {
+    if (opts.sandbox) return { ok: true, providerId: `${SANDBOX_ID_PREFIX}email-${crypto.randomUUID()}`, sandbox: true };
+    return { ok: false, error: "email not configured (RESEND_API_KEY, EMAIL_FROM)", sandbox: false };
+  }
   try {
     const headers: Record<string, string> = { Authorization: `Bearer ${cfg.apiKey}`, "Content-Type": "application/json" };
     if (msg.idempotencyKey) headers["Idempotency-Key"] = msg.idempotencyKey.slice(0, 256);
@@ -113,6 +141,7 @@ export async function sendEmail(
       method: "POST",
       headers,
       body: JSON.stringify({ from, to: [msg.to], subject: msg.subject, text: msg.text }),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
     const json = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
     if (!res.ok || !json.id) return { ok: false, error: `email ${res.status}: ${json.message ?? "unknown error"}`, sandbox: false };

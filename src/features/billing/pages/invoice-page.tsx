@@ -19,6 +19,7 @@ import { LinesEditorDialog } from "../components/lines-editor";
 import { PaymentDialog } from "../components/payment-dialog";
 import { MobilePaymentDialog } from "../components/mobile-payment-dialog";
 import { InstallmentsCard } from "../components/installments-card";
+import { useReportWrite } from "@/lib/sync/report-write";
 
 export default function InvoicePage() {
   return (
@@ -50,6 +51,7 @@ function InvoiceScreen() {
 type Confirm = "issue" | "cancel" | "delete" | { payment: string } | null;
 
 function InvoiceDetail({ view }: { view: InvoiceView }) {
+  const report = useReportWrite();
   const { t, gnf, date, canWrite, cabinet, cabinetId, today, locale, tz } = useBilling();
   const router = useRouter();
   const toast = useToast();
@@ -290,7 +292,7 @@ function InvoiceDetail({ view }: { view: InvoiceView }) {
         message={t("billing.confirm.cancelMessage")}
         confirmLabel={t("billing.actions.cancelInvoice")}
         cancelLabel={t("common.back")}
-        onConfirm={() => void cancelInvoice(invoice.id)}
+        onConfirm={() => report(cancelInvoice(invoice.id))}
       />
       <ConfirmDialog
         open={confirm === "delete"}

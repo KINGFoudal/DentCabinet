@@ -23,9 +23,10 @@ npm run dev                   # http://localhost:3000
 ```
 
 Espace patient de démonstration : http://localhost:3000/patient, numéro `620 11 11 11`, code `123456`.
-Pour un autre numéro, le code est écrit dans le journal de l'Edge Function `send-sms-hook`
-(`docker logs supabase_edge_runtime_nimba-dentaire`), tant que les clés WhatsApp ne sont pas configurées.
-Les paiements Orange Money / MTN sont simulés (`PAYMENTS_MODE=sandbox`).
+Sans clés WhatsApp, les messages sont simulés en local (`MESSAGING_MODE=sandbox` dans
+`supabase/functions/.env`) : rien n'est envoyé et les codes de connexion ne sont jamais journalisés ;
+utilisez le numéro de démonstration. Les paiements Orange Money / MTN sont simulés
+(`PAYMENTS_MODE=sandbox`, `PAYMENTS_SANDBOX_SECRET`, `NIMBA_ENV=development` dans `.env.local`).
 
 Comptes de démonstration (mot de passe `Demo12345`) :
 

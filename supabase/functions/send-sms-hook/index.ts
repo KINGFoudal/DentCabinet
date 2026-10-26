@@ -7,14 +7,15 @@
  * (en-têtes webhook-id / webhook-timestamp / webhook-signature), secret SEND_SMS_HOOK_SECRETS
  * (« v1,whsec_<base64> », plusieurs secrets séparés par « | »).
  * Réponse : 200 {} si envoyé ; sinon { error: { http_code, message } } (Content-Type JSON).
- * Sans clés WhatsApp : mode sandbox, le code est seulement écrit dans les journaux de la fonction
- * (à ne jamais utiliser en production).
+ * Sans clés WhatsApp : erreur (le code n'est pas envoyé), sauf si MESSAGING_MODE=sandbox
+ * (développement local) : réponse 200 sans envoi. Le code n'est jamais journalisé ; en local,
+ * utiliser le numéro de démonstration et son code fixe ([auth.sms.test_otp] de config.toml).
  */
 
 // @ts-expect-error -- Deno exige l'extension .ts dans les imports relatifs.
 import { verifyWebhook } from "../_shared/standard-webhooks.ts";
 // @ts-expect-error -- idem
-import { sendWhatsApp, whatsappConfig, whatsappLanguage, whatsappTemplatePayload } from "../_shared/messaging.ts";
+import { messagingSandbox, sendWhatsApp, whatsappConfig, whatsappLanguage, whatsappTemplatePayload } from "../_shared/messaging.ts";
 // @ts-expect-error -- idem
 import { whatsappRecipient } from "../_shared/reminders.ts";
 
@@ -56,11 +57,15 @@ Deno.serve(async (req) => {
   const result = await sendWhatsApp(
     cfg,
     whatsappTemplatePayload(whatsappRecipient(phone), cfg?.otpTemplate ?? "nimba_code_connexion", whatsappLanguage(locale, env), [otp], otp),
+    undefined,
+    { sandbox: messagingSandbox(env) },
   );
   if (!result.ok) {
-    console.error("send-sms-hook", result.error);
+    // Le message d'erreur de l'API pourrait citer les paramètres : le code est masqué.
+    console.error("send-sms-hook", result.error.split(otp).join("******"));
     return fail(500, "message could not be sent");
   }
-  if (result.sandbox) console.log(`[sandbox] OTP ${otp} -> ${phone}`);
+  // Jamais le code lui-même dans les journaux.
+  if (result.sandbox) console.log(`[sandbox] login code not sent (MESSAGING_MODE=sandbox) -> ${phone.slice(0, 5)}…${phone.slice(-2)}`);
   return reply({});
 });

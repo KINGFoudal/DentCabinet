@@ -7,7 +7,7 @@ import {
   type StatusQuery,
   type WebhookContext,
 } from "../types";
-import { parseJSON, str, TokenCache } from "./util";
+import { parseJSON, str, TokenCache, withTimeout } from "./util";
 
 /**
  * MTN Mobile Money — MoMo Open API, produit « Collection », opération requestToPay.
@@ -86,7 +86,9 @@ function reasonText(reason: unknown): string | undefined {
 
 const tokenCache = new TokenCache();
 
-export function mtnMomoAdapter(config: MtnMomoConfig, fetchImpl: Fetch = fetch, cache = tokenCache): PaymentProviderAdapter {
+export function mtnMomoAdapter(config: MtnMomoConfig, baseFetch: Fetch = fetch, cache = tokenCache): PaymentProviderAdapter {
+  // Délai maximal par appel : un opérateur qui ne répond pas ne bloque pas la requête.
+  const fetchImpl = withTimeout(baseFetch);
   const assertConfigured = () => {
     if (!config.subscriptionKey || !config.apiUser || !config.apiKey) {
       throw new PaymentProviderError("MTN MoMo is not configured (MTN_MOMO_SUBSCRIPTION_KEY, MTN_MOMO_API_USER, MTN_MOMO_API_KEY)");
