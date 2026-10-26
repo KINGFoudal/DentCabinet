@@ -48,15 +48,15 @@ export function ChartTab({ patient }: { patient: Row<"patients"> }) {
     const plans = await db.treatment_plans
       .where("patient_id")
       .equals(patient.id)
-      .filter((p) => !p.deleted_at && p.status !== "cancelled")
+      .filter((p) => p.cabinet_id === cabinetId && !p.deleted_at && p.status !== "cancelled")
       .toArray();
     if (!plans.length) return [] as PlanItem[];
     return db.treatment_plan_items
       .where("plan_id")
       .anyOf(plans.map((p) => p.id))
-      .filter((i) => !i.deleted_at && i.tooth != null)
+      .filter((i) => i.cabinet_id === cabinetId && !i.deleted_at && i.tooth != null)
       .toArray();
-  }, [patient.id]);
+  }, [patient.id, cabinetId]);
 
   const states = useMemo(() => {
     const map = new Map<number, ToothState & { id: string }>();
