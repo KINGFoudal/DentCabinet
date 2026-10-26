@@ -12,7 +12,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { cn } from "@/components/ui/cn";
 import { formatPhone } from "@/lib/format";
 import { errorKey } from "@/features/portal/lib/errors";
-import { authPhoneToE164 } from "@/features/portal/lib/schedule";
+import { portalIdentity } from "@/features/portal/lib/identity";
 import { loadPortalData, type PortalData, type PortalInvoice } from "@/features/portal/lib/portal-data";
 import { PortalFooter, PortalHeader } from "./portal-header";
 import { AppointmentsSection, BillingSection, DocumentsSection, PrescriptionsSection } from "./portal-sections";
@@ -21,11 +21,11 @@ import { PayDialog } from "./pay-dialog";
 type Tab = "appointments" | "billing" | "prescriptions" | "documents";
 type LoadState = { key: string; data: PortalData | null; error: string | null };
 
-/** Session patient requise (connexion par téléphone) ; sinon redirection vers la connexion. */
+/** Session patient requise (connexion par code email ou téléphone) ; sinon redirection vers la connexion. */
 export function usePatientSession() {
   const { ready, user } = useAuth();
   const router = useRouter();
-  const ok = !!user && !!authPhoneToE164(user.phone);
+  const ok = !!portalIdentity(user);
   useEffect(() => {
     if (ready && !ok) router.replace("/patient/connexion");
   }, [ready, ok, router]);
@@ -78,7 +78,9 @@ export function PatientPortal() {
   const [tab, setTab] = useState<Tab>("appointments");
   const [cabinetFilter, setCabinetFilter] = useState<string>("all");
   const [paying, setPaying] = useState<PortalInvoice | null>(null);
-  const phone = authPhoneToE164(user?.phone);
+  const identity = portalIdentity(user);
+  const phone = identity?.kind === "phone" ? identity.value : null;
+  const identityLabel = identity ? (identity.kind === "phone" ? formatPhone(identity.value) : identity.value) : "";
 
   const view = useMemo<PortalData | null>(() => {
     if (!data) return null;
@@ -143,7 +145,7 @@ export function PatientPortal() {
         <h1 className="text-xl font-semibold">
           {first ? t("portal.home.hello", { name: first.first_name }) : t("portal.home.helloAnon")}
         </h1>
-        <p className="text-sm text-muted">{formatPhone(phone)}</p>
+        <p className="break-all text-sm text-muted">{identityLabel}</p>
       </div>
       {error && (
         <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
@@ -158,7 +160,11 @@ export function PatientPortal() {
         <EmptyState
           icon={<UserRoundSearch />}
           title={t("portal.home.noRecordsTitle")}
-          description={t("portal.home.noRecordsText", { phone: formatPhone(phone) })}
+          description={
+            identity?.kind === "email"
+              ? t("portal.home.noRecordsTextEmail", { email: identity.value })
+              : t("portal.home.noRecordsText", { phone: identityLabel })
+          }
         />
       ) : (
         <>

@@ -81,6 +81,7 @@ export const messages = {
         generic: "Une erreur est survenue. Réessayez.",
         offline: "Pas de connexion internet. Réessayez quand le réseau revient.",
         rate_limited: "Trop de tentatives. Patientez un moment avant de réessayer.",
+        email_not_authorized: "L'envoi d'emails n'est pas encore configuré par le cabinet. Réessayez plus tard ou appelez le cabinet.",
       },
       login: {
         title: "Espace patient",
@@ -98,6 +99,16 @@ export const messages = {
         changePhone: "Changer de numéro",
         sendFailed: "Impossible d'envoyer le code. Réessayez dans un instant.",
         privacy: "Vos données de santé ne sont visibles que par vous et votre cabinet.",
+        subtitleEmail: "Recevez un code par email pour voir vos rendez-vous, factures et ordonnances. Utilisez l'adresse donnée à votre cabinet.",
+        email: "Adresse email",
+        emailHint: "L'adresse enregistrée sur votre fiche au cabinet",
+        invalidEmail: "Adresse email invalide.",
+        codeSentEmail: "Code à 6 chiffres envoyé à {email}. Pensez à regarder dans les courriers indésirables (spam).",
+        codeResent: "Nouveau code envoyé à {email}. Seul le dernier code reçu est valable.",
+        codeLength: "Le code contient {count} chiffres.",
+        changeEmail: "Changer d'adresse",
+        usePhone: "Se connecter avec un numéro de téléphone",
+        useEmail: "Se connecter avec une adresse email",
       },
       home: {
         hello: "Bonjour {name}",
@@ -107,6 +118,8 @@ export const messages = {
         noRecordsTitle: "Aucun dossier trouvé",
         noRecordsText:
           "Aucun cabinet ne vous suit avec le numéro {phone}. Demandez au cabinet d'enregistrer ce numéro sur votre fiche, ou prenez rendez-vous en ligne depuis la page du cabinet.",
+        noRecordsTextEmail:
+          "Aucune fiche patient ne porte l'adresse {email}. Demandez à votre cabinet d'enregistrer cette adresse sur votre fiche, puis reconnectez-vous.",
         loadFailed: "Impossible de charger vos informations.",
         tabs: {
           appointments: "Rendez-vous",
@@ -308,6 +321,7 @@ export const messages = {
         generic: "Something went wrong. Please try again.",
         offline: "No internet connection. Try again when the network is back.",
         rate_limited: "Too many attempts. Please wait a moment before trying again.",
+        email_not_authorized: "Email sending is not set up yet. Please try again later or call the practice.",
       },
       login: {
         title: "Patient area",
@@ -325,6 +339,16 @@ export const messages = {
         changePhone: "Change number",
         sendFailed: "Could not send the code. Please try again shortly.",
         privacy: "Your health data is only visible to you and your practice.",
+        subtitleEmail: "Get a code by email to see your appointments, invoices and prescriptions. Use the address you gave your practice.",
+        email: "Email address",
+        emailHint: "The address saved on your file at the practice",
+        invalidEmail: "Invalid email address.",
+        codeSentEmail: "6-digit code sent to {email}. Check your spam folder too.",
+        codeResent: "New code sent to {email}. Only the latest code works.",
+        codeLength: "The code has {count} digits.",
+        changeEmail: "Change address",
+        usePhone: "Sign in with a phone number",
+        useEmail: "Sign in with an email address",
       },
       home: {
         hello: "Hello {name}",
@@ -334,6 +358,7 @@ export const messages = {
         noRecordsTitle: "No record found",
         noRecordsText:
           "No practice has a record with the number {phone}. Ask your practice to add this number to your file, or book online from the practice page.",
+        noRecordsTextEmail: "No patient file has the address {email}. Ask your practice to save this address on your file, then sign in again.",
         loadFailed: "Could not load your information.",
         tabs: {
           appointments: "Appointments",
