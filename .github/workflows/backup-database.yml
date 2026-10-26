@@ -1,0 +1,126 @@
+# Sauvegarde nocturne chiffrée de la base Supabase de production, avec test de restauration.
+# Mise en place et restauration : docs/DEPLOIEMENT.md, section « Sauvegarde automatique de la base ».
+# Secrets requis (GitHub > Settings > Secrets and variables > Actions) :
+#   SUPABASE_DB_URL     adresse « Session pooler » (port 5432) avec le mot de passe de la base
+#   BACKUP_PASSPHRASE   phrase de passe de chiffrement (conservée dans un gestionnaire de mots de passe)
+name: Sauvegarde de la base
+
+on:
+  schedule:
+    # Chaque nuit à 02:17 UTC = 02:17 à Conakry (UTC+0). Minute non ronde pour éviter les pics.
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-database
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Sauvegarde, chiffrement et test de restauration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PG_BIN: /usr/lib/postgresql/17/bin
+      PG_MAJOR: "17"
+    services:
+      restore-test:
+        image: postgres:17
+        env:
+          # Base jetable du test de restauration, accessible uniquement depuis ce job.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Récupérer le dépôt (script de restauration)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Vérifier la présence des secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_DB_URL" ] || { echo "::error::Secret SUPABASE_DB_URL absent"; exit 1; }
+          [ -n "$BACKUP_PASSPHRASE" ] || { echo "::error::Secret BACKUP_PASSPHRASE absent"; exit 1; }
+          [ "${#BACKUP_PASSPHRASE}" -ge 20 ] || { echo "::error::BACKUP_PASSPHRASE trop courte (20 caractères minimum)"; exit 1; }
+
+      - name: Installer le client PostgreSQL 17 (dépôt officiel PGDG)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq "postgresql-client-${PG_MAJOR}"
+          "$PG_BIN/pg_dump" --version
+          "$PG_BIN/pg_restore" --version
+          "$PG_BIN/pg_dump" --version | grep -Eq " ${PG_MAJOR}\." || { echo "::error::pg_dump ${PG_MAJOR} introuvable"; exit 1; }
+
+      - name: Sauvegarder et chiffrer
+        id: dump
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          server_num="$("$PG_BIN/psql" "$SUPABASE_DB_URL" -X -A -t -q -c 'show server_version_num')" ||
+            { echo "::error::Connexion à Supabase impossible (vérifiez SUPABASE_DB_URL : Session pooler, port 5432)"; exit 1; }
+          server_major=$(( server_num / 10000 ))
+          echo "Version majeure du serveur : $server_major ; client : $PG_MAJOR"
+          [ "$server_major" -le "$PG_MAJOR" ] || { echo "::error::Serveur PostgreSQL $server_major plus récent que le client $PG_MAJOR : mettre à jour PG_MAJOR"; exit 1; }
+
+          stamp="$(date -u +%Y-%m-%d_%H%M)"
+          out_dir="$RUNNER_TEMP/backup"
+          mkdir -p "$out_dir"
+          # Trousseau gpg jetable (chemin court : la socket de gpg-agent est limitée en longueur).
+          GNUPGHOME="$(mktemp -d)"; export GNUPGHOME
+          file="nimba-db-${stamp}.dump.gpg"
+          # Format custom (compressé), schémas de l'application, comptes (auth), métadonnées des
+          # fichiers (storage) et historique des migrations. La sauvegarde en clair ne touche jamais
+          # le disque : elle est chiffrée (AES-256) au fil de l'eau.
+          "$PG_BIN/pg_dump" "$SUPABASE_DB_URL" --format=custom \
+            --schema=public --schema=app --schema=auth --schema=storage --schema=supabase_migrations \
+            --exclude-table=storage.buckets_vectors --exclude-table=storage.vector_indexes \
+            --no-publications --no-subscriptions --lock-wait-timeout=60s |
+            gpg --quiet --batch --yes --pinentry-mode loopback \
+              --passphrase-fd 3 --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 \
+              --compress-algo none --output "$out_dir/$file" 3< <(printf '%s' "$BACKUP_PASSPHRASE")
+          (cd "$out_dir" && sha256sum "$file" > "$file.sha256")
+          echo "Taille de la sauvegarde chiffrée : $(du -h "$out_dir/$file" | cut -f1)"
+          echo "stamp=$stamp" >> "$GITHUB_OUTPUT"
+          echo "file=$out_dir/$file" >> "$GITHUB_OUTPUT"
+
+      - name: Tester la restauration (base PostgreSQL 17 vide)
+        id: restore_test
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          BACKUP_FILE: ${{ steps.dump.outputs.file }}
+          TARGET_DATABASE_URL: postgresql://postgres@localhost:5432/postgres
+          RESTORE_MODE: empty
+        run: |
+          set -euo pipefail
+          bash scripts/restore-backup.sh
+
+      - name: Conserver la sauvegarde chiffrée (30 jours)
+        if: ${{ !cancelled() && steps.dump.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # Une sauvegarde dont le test de restauration a échoué reste conservée, mais nommée comme telle.
+          name: nimba-db-backup-${{ steps.dump.outputs.stamp }}${{ steps.restore_test.outcome != 'success' && '-TEST-ECHOUE' || '' }}
+          path: |
+            ${{ runner.temp }}/backup/*.dump.gpg
+            ${{ runner.temp }}/backup/*.sha256
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

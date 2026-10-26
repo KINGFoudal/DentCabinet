@@ -136,3 +136,91 @@ Puis **Redeploy**. Les valeurs exactes (adresses de production, devise) sont fou
 - [ ] Paramètres > Cabinet : activer la réservation en ligne ; la page `/c/<adresse-du-cabinet>` s'affiche.
 - [ ] Espace patient `/patient` : réception du code par WhatsApp (nécessite les clés WhatsApp ; le code n'est jamais écrit dans les journaux).
 - [ ] Supabase > **Advisors** : aucune alerte de sécurité critique.
+- [ ] Sauvegarde : secrets créés, branche par défaut `nimba-v1`, premier lancement manuel vert (section 9).
+
+## 9. Sauvegarde automatique de la base (gratuite)
+
+L'offre gratuite de Supabase ne fournit **aucune sauvegarde téléchargeable**. Le workflow GitHub `.github/workflows/backup-database.yml` en fait une chaque nuit à **02:17, heure de Conakry** (UTC+0) :
+
+1. copie de la base (`pg_dump`, client PostgreSQL 17 comme le serveur) : tables de l'application (`public`, `app`), comptes utilisateurs (`auth`), liste des fichiers (`storage`, sans le contenu des fichiers) et historique des migrations ;
+2. **chiffrement** AES-256 avec votre phrase de passe, avant tout stockage : la copie en clair n'est jamais écrite sur le disque ;
+3. **test de restauration** dans une base PostgreSQL 17 vide, avec contrôle des tables `cabinets`, `patients`, `appointments`, `invoices` (le journal n'affiche que des nombres de lignes). Si le test échoue, le workflow est rouge ;
+4. conservation du fichier chiffré **30 jours** dans GitHub (onglet Actions), sous le nom `nimba-db-backup-AAAA-MM-JJ_HHMM`.
+
+Ce qui n'est **pas** sauvegardé : le contenu des fichiers déposés (Storage), les secrets du Vault (`project_url`, `reminders_cron_secret` : à recréer, étape 4), les réglages du tableau de bord (Authentication, hooks), les fonctions (elles sont dans le dépôt) et la planification des rappels (recréée par les migrations).
+
+### 9.1 Préparer l'adresse de connexion (secret `SUPABASE_DB_URL`)
+
+1. Supabase > projet nimba-dentaire > bouton **Connect** (en haut) > **Session pooler**. Copier l'adresse : elle ressemble à `postgresql://postgres.kxzqyexqwcuufacmzmbg:[YOUR-PASSWORD]@aws-…pooler.supabase.com:5432/postgres` (port **5432**). Prenez bien « Session pooler » : la connexion directe passe par IPv6, que les machines de GitHub ne savent pas joindre.
+2. Ne collez cette adresse **nulle part ailleurs** que dans GitHub (pas de fichier, pas de chat, pas d'email). Collez-la directement dans le champ du secret (étape 9.2), puis, dans ce même champ, remplacez `[YOUR-PASSWORD]` (crochets compris) par le mot de passe de la base.
+3. Le mot de passe se trouve (ou se réinitialise) dans **Project Settings > Database**. S'il contient des caractères spéciaux (`@ : / ? # & %` ou espace), le plus simple est d'en générer un nouveau composé uniquement de lettres et chiffres ; sinon ces caractères doivent être encodés (`@` devient `%40`, `#` devient `%23`…). Après une réinitialisation, attendre quelques minutes, et mettre à jour le mot de passe partout où il sert (`npx supabase link`).
+
+### 9.2 Créer les deux secrets dans GitHub
+
+Sur GitHub > dépôt **KINGFoudal/DentCabinet** > **Settings > Secrets and variables > Actions** > **New repository secret** :
+
+| Nom | Valeur |
+|---|---|
+| `SUPABASE_DB_URL` | l'adresse « Session pooler » avec le mot de passe (9.1) |
+| `BACKUP_PASSPHRASE` | la phrase de passe de chiffrement (9.3), 20 caractères minimum |
+
+GitHub ne réaffiche jamais un secret enregistré et le masque (`***`) dans les journaux.
+
+### 9.3 Phrase de passe de chiffrement
+
+**Sans cette phrase de passe, les sauvegardes sont illisibles, pour tout le monde, y compris vous.** Avant de créer le secret :
+
+1. Créez-la dans votre **gestionnaire de mots de passe** (Bitwarden, 1Password, KeePassXC…) avec son générateur : 6 mots ou plus (« phrase de passe ») ou 32 caractères aléatoires. Ou dans un terminal : `openssl rand -base64 32`.
+2. Enregistrez-la dans le gestionnaire sous un nom clair, par exemple « Nimba – phrase de passe des sauvegardes ».
+3. Copiez-la depuis le gestionnaire dans le secret `BACKUP_PASSPHRASE`. Ne la changez pas sans raison : les anciennes sauvegardes restent chiffrées avec l'ancienne phrase (gardez donc les deux tant que les anciennes existent, soit 30 jours).
+
+### 9.4 Branche par défaut : condition pour que la sauvegarde tourne seule
+
+D'après la documentation GitHub, **les workflows planifiés ne tournent que sur la branche par défaut du dépôt**, et le bouton « Run workflow » n'apparaît que si le fichier du workflow existe sur cette branche. Aujourd'hui la branche par défaut est `master`, alors que le code est sur `nimba-v1`. Deux solutions :
+
+- **recommandé** : GitHub > **Settings > General > Default branch** > icône des flèches > choisir `nimba-v1` > **Update** (Vercel utilise déjà `nimba-v1` en production) ;
+- ou fusionner `nimba-v1` dans `master` (pull request), et continuer ensuite à fusionner régulièrement.
+
+À savoir : si le dépôt est **public**, GitHub désactive les workflows planifiés après **60 jours sans activité** sur le dépôt (un email prévient ; il suffit de les réactiver dans l'onglet Actions). GitHub peut aussi retarder un lancement planifié en période de forte charge.
+
+### 9.5 Premier lancement à la main
+
+1. GitHub > onglet **Actions** > **Sauvegarde de la base** (colonne de gauche) > **Run workflow** > branche `nimba-v1` > **Run workflow**.
+2. Attendre quelques minutes : le rond doit devenir **vert**. En cas d'échec, ouvrir l'étape en rouge : « Secret … absent » (9.2), « Connexion à Supabase impossible » (adresse ou mot de passe, 9.1), « TEST-ECHOUE » dans le nom de la sauvegarde (le test de restauration a échoué : prévenir le développeur).
+3. En bas de la page de l'exécution, rubrique **Artifacts** : `nimba-db-backup-…` (un fichier `.dump.gpg` et son empreinte `.sha256`).
+4. Ensuite, vérifier une fois par semaine que les exécutions nocturnes sont vertes. Pour recevoir un email en cas d'échec : GitHub > avatar > **Settings > Notifications > System > Actions** > « Only notify for failed workflows ».
+
+### 9.6 Quotas gratuits de GitHub
+
+Compte GitHub Free, dépôt privé : **500 Mo de stockage d'artefacts** et **2 000 minutes d'Actions par mois** (dépôt public : minutes gratuites illimitées sur les machines standard). Le stockage est compté heure par heure : avec 30 sauvegardes conservées, il faut que chacune fasse moins d'environ 15 Mo (taille affichée dans l'étape « Sauvegarder et chiffrer »). Une exécution dure environ 2 à 4 minutes, soit environ 100 minutes par mois. Si la base grossit, réduire `retention-days` dans le workflow (par exemple 14) ou supprimer d'anciens artefacts (page de l'exécution > icône corbeille). Rétention maximale autorisée : 90 jours (public) ou 400 jours (privé).
+
+### 9.7 Restaurer une sauvegarde
+
+Il faut le client PostgreSQL 17 (`psql`, `pg_restore`) et `gpg` : sur Ubuntu, `sudo apt install -y postgresql-common && sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh` puis `sudo apt install -y postgresql-client-17 gnupg` ; sur Mac, `brew install postgresql@17 gnupg`.
+
+1. Télécharger l'artefact : onglet **Actions** > l'exécution voulue > **Artifacts** > `nimba-db-backup-…` (fichier zip). Le dézipper, puis vérifier l'empreinte : `sha256sum -c nimba-db-*.dump.gpg.sha256`.
+2. **Vérifier le contenu dans une base vide** (sans risque, sur votre ordinateur, avec Docker) :
+   ```bash
+   docker run -d --name nimba-restore -e POSTGRES_HOST_AUTH_METHOD=trust -p 55432:5432 postgres:17
+   BACKUP_FILE=nimba-db-AAAA-MM-JJ_HHMM.dump.gpg \
+   TARGET_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/postgres \
+   bash scripts/restore-backup.sh        # demande la phrase de passe sans l'afficher
+   ```
+   Le script affiche le nombre de lignes des tables principales. Pour supprimer la base de test : `docker rm -f nimba-restore`.
+3. **Remettre en service après une perte de la production** : créer un **nouveau** projet Supabase (région Paris), puis :
+   ```bash
+   npx supabase link --project-ref <ref-du-nouveau-projet>
+   npx supabase db push                  # recrée le schéma à partir des migrations du dépôt
+   ```
+   Puis restaurer les données (adresse « Session pooler » du **nouveau** projet, tapée dans votre terminal seulement) :
+   ```bash
+   read -r -s -p "Adresse du nouveau projet : " TARGET_DATABASE_URL; echo; export TARGET_DATABASE_URL
+   BACKUP_FILE=nimba-db-AAAA-MM-JJ_HHMM.dump.gpg RESTORE_MODE=supabase CONFIRM_REPLACE_DATA=oui \
+   bash scripts/restore-backup.sh
+   ```
+   Le mode `supabase` efface les données de la cible puis les remplace par celles de la sauvegarde, en une seule transaction (en cas d'erreur, rien n'est modifié). Le code du dépôt doit correspondre aux migrations de la sauvegarde. Refaire ensuite les étapes 2 à 5 de ce document pour le nouveau projet (réglages Authentication, fonctions et leurs secrets, Vault, variables Vercel) et changer `SUPABASE_DB_URL`. Les utilisateurs devront se reconnecter.
+4. **Garde-fou** : le script refuse toute cible contenant l'identifiant de production `kxzqyexqwcuufacmzmbg`, sauf avec `CONFIRM_PRODUCTION=OUI-ECRASER-LA-PRODUCTION`. N'utilisez cette option qu'en dernier recours, après avoir fait une sauvegarde à la main (9.5) de l'état actuel.
+
+### 9.8 Mise en pause du projet gratuit Supabase
+
+Supabase met en pause les projets gratuits qui ont **trop peu d'activité sur 7 jours** (un email d'avertissement est envoyé avant). Un projet en pause se réactive depuis le tableau de bord (**Resume project**) pendant **90 jours** ; au-delà, il ne peut plus être restauré sur la plateforme, d'où l'importance de ces sauvegardes. La sauvegarde nocturne échoue si le projet est en pause : un workflow rouge est aussi un signal pour aller vérifier le projet. Seul le passage à l'offre Pro supprime la mise en pause automatique.
