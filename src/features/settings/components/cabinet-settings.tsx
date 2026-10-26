@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/toast";
 import { RequirePermission } from "@/components/app/app-gate";
 import { invalidDays, normalizeOpeningHours, parseOpeningHours, type OpeningHours } from "../opening-hours";
 import { OpeningHoursEditor } from "./opening-hours-editor";
+import { useReportWrite } from "@/lib/sync/report-write";
 
 const LOGO_TYPES: Record<string, string> = {
   "image/png": "png",
@@ -229,6 +230,7 @@ function CabinetForm({ cabinet }: { cabinet: Row<"cabinets"> }) {
 }
 
 function LogoCard({ cabinet, disabled }: { cabinet: Row<"cabinets">; disabled: boolean }) {
+  const report = useReportWrite();
   const { t } = useI18n();
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
@@ -285,7 +287,7 @@ function LogoCard({ cabinet, disabled }: { cabinet: Row<"cabinets">; disabled: b
               {t("settings.cabinet.logoUpload")}
             </Button>
             {cabinet.logo_path && (
-              <Button variant="ghost" disabled={disabled || busy} onClick={() => void mutate("cabinets", { id: cabinet.id, logo_path: null })}>
+              <Button variant="ghost" disabled={disabled || busy} onClick={() => report(mutate("cabinets", { id: cabinet.id, logo_path: null }))}>
                 <Trash2 className="size-4" />
                 {t("settings.cabinet.logoRemove")}
               </Button>

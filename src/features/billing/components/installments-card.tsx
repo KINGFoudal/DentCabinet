@@ -13,9 +13,11 @@ import { addInstallment, removeInstallment, replaceInstallments } from "../actio
 import { allocateInstallments, splitSchedule } from "../lib/installments";
 import type { InvoiceView } from "../data";
 import { InstallmentBadge, useBilling } from "./common";
+import { useReportWrite } from "@/lib/sync/report-write";
 
 /** Échéancier d'une facture : échéances, part déjà couverte, retards. */
 export function InstallmentsCard({ view, editable }: { view: InvoiceView; editable: boolean }) {
+  const report = useReportWrite();
   const { t, gnf, date, today, cabinetId } = useBilling();
   const [open, setOpen] = useState(false);
   const allocated = allocateInstallments(view.installments, view.figures.paid, today, view.figures.total);
@@ -51,7 +53,7 @@ export function InstallmentsCard({ view, editable }: { view: InvoiceView; editab
                 ) : null}
                 <InstallmentBadge state={i.state} />
                 {editable && (
-                  <Button size="sm" variant="ghost" aria-label={t("common.delete")} onClick={() => void removeInstallment(i.id)}>
+                  <Button size="sm" variant="ghost" aria-label={t("common.delete")} onClick={() => report(removeInstallment(i.id))}>
                     <Trash2 className="size-4 text-danger" />
                   </Button>
                 )}

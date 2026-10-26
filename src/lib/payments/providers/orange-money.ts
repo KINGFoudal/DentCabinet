@@ -7,7 +7,7 @@ import {
   type StatusQuery,
   type WebhookContext,
 } from "../types";
-import { parseJSON, safeEqual, str, TokenCache } from "./util";
+import { parseJSON, safeEqual, str, TokenCache, withTimeout } from "./util";
 
 /**
  * Orange Money « Web Payment / M Payment » (API marchand avec redirection).
@@ -87,7 +87,9 @@ export function mapOrangeStatus(s: string | undefined): ProviderStatus {
 
 const tokenCache = new TokenCache();
 
-export function orangeMoneyAdapter(config: OrangeMoneyConfig, fetchImpl: Fetch = fetch, cache = tokenCache): PaymentProviderAdapter {
+export function orangeMoneyAdapter(config: OrangeMoneyConfig, baseFetch: Fetch = fetch, cache = tokenCache): PaymentProviderAdapter {
+  // Délai maximal par appel : un opérateur qui ne répond pas ne bloque pas la requête.
+  const fetchImpl = withTimeout(baseFetch);
   const assertConfigured = () => {
     if (!config.authHeader || !config.merchantKey) {
       throw new PaymentProviderError("Orange Money is not configured (ORANGE_MONEY_CLIENT_ID/SECRET, ORANGE_MONEY_MERCHANT_KEY)");

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  abandonedLogs,
   isReminderDue,
+  isStaleQueued,
+  retryReservationFilter,
   reminderWindow,
   renderTemplate,
   selectReminders,
@@ -9,7 +12,16 @@ import {
   zonedTime,
   type ReminderTemplate,
 } from "../../../../supabase/functions/_shared/reminders";
-import { sendEmail, sendWhatsApp, whatsappConfig, whatsappTemplatePayload } from "../../../../supabase/functions/_shared/messaging";
+import {
+  messagingSandbox,
+  SANDBOX_ID_PREFIX,
+  sendEmail,
+  sendWhatsApp,
+  whatsappConfig,
+  whatsappTemplatePayload,
+} from "../../../../supabase/functions/_shared/messaging";
+import { Rest } from "../../../../supabase/functions/_shared/rest";
+import { secretsEqual } from "../../../../supabase/functions/_shared/secrets";
 import { signWebhook, verifyWebhook } from "../../../../supabase/functions/_shared/standard-webhooks";
 
 const TZ = "Africa/Conakry";
@@ -120,8 +132,93 @@ describe("sélection des rappels", () => {
       selectReminders({ ...base, now, appointments: [appt], templates: [tpl("reminder_day_before", "whatsapp")], logs });
     expect(only([log("sent", 1)])).toEqual([]);
     expect(only([log("queued", 1)])).toEqual([]);
-    expect(only([log("failed", 1)])[0].retry).toEqual({ id: "l1", attempts: 1 });
+    expect(only([log("failed", 1)])[0].retry).toEqual({ id: "l1", attempts: 1, status: "failed", updated_at: null });
     expect(only([log("failed", 3)])).toEqual([]);
+  });
+
+  it("une ligne « queued » de plus de 15 min est retentée", () => {
+    const now = new Date("2026-10-26T19:00:00Z");
+    const log = (updated_at: string, attempts = 1) => ({
+      id: "l1",
+      appointment_id: "a1",
+      kind: "reminder_day_before",
+      channel: "whatsapp",
+      status: "queued",
+      attempts,
+      updated_at,
+    });
+    const only = (l: ReturnType<typeof log>) =>
+      selectReminders({ ...base, now, appointments: [appt], templates: [tpl("reminder_day_before", "whatsapp")], logs: [l] });
+    expect(only(log("2026-10-26T18:50:00Z"))).toEqual([]);
+    const jobs = only(log("2026-10-26T18:40:00.123456+00:00"));
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].retry).toEqual({ id: "l1", attempts: 1, status: "queued", updated_at: "2026-10-26T18:40:00.123456+00:00" });
+    expect(retryReservationFilter(jobs[0].retry!)).toBe(
+      "id=eq.l1&status=eq.queued&attempts=eq.1&updated_at=eq.2026-10-26T18%3A40%3A00.123456%2B00%3A00",
+    );
+    expect(only(log("2026-10-26T18:40:00Z", 3))).toEqual([]);
+    expect(abandonedLogs([log("2026-10-26T18:40:00Z", 3), log("2026-10-26T18:40:00Z", 1), log("2026-10-26T18:55:00Z", 3)], now)).toHaveLength(1);
+    expect(retryReservationFilter({ id: "l2", attempts: 2, status: "failed", updated_at: "x" })).toBe("id=eq.l2&status=eq.failed&attempts=eq.2");
+  });
+
+  it("isStaleQueued ignore les autres statuts et les dates invalides", () => {
+    const now = new Date("2026-10-26T19:00:00Z");
+    expect(isStaleQueued({ status: "failed", updated_at: "2026-10-26T10:00:00Z" }, now)).toBe(false);
+    expect(isStaleQueued({ status: "queued", updated_at: null }, now)).toBe(false);
+    expect(isStaleQueued({ status: "queued", updated_at: "n/a" }, now)).toBe(false);
+    expect(isStaleQueued({ status: "queued", updated_at: "2026-10-26T18:44:59Z" }, now)).toBe(true);
+  });
+});
+
+describe("pagination et délais", () => {
+  it("Rest.selectAll lit toutes les pages et borne chaque requête", async () => {
+    const rows = Array.from({ length: 2500 }, (_, i) => ({ i }));
+    const urls: string[] = [];
+    const fetchFn = vi.fn(async (url: string, init?: RequestInit) => {
+      urls.push(url);
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      const u = new URL(url);
+      const limit = Number(u.searchParams.get("limit"));
+      const offset = Number(u.searchParams.get("offset"));
+      // Le serveur plafonne à 1000 lignes, quelle que soit la taille demandée.
+      return new Response(JSON.stringify(rows.slice(offset, offset + Math.min(limit, 1000))), { status: 200 });
+    });
+    const rest = new Rest("http://db", "key", fetchFn);
+    const all = await rest.selectAll<{ i: number }>("appointments?select=id&order=starts_at,id", 1000);
+    expect(all).toHaveLength(2500);
+    expect(urls[0]).toBe("http://db/rest/v1/appointments?select=id&order=starts_at,id&limit=1000&offset=0");
+    expect(urls.at(-1)).toContain("offset=2500");
+  });
+
+  it("les envois de messages sont bornés par un délai", async () => {
+    const fetchFn = vi.fn(async (_url: string, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      return new Response(JSON.stringify({ id: "e1", messages: [{ id: "w1" }] }), { status: 200 });
+    });
+    const cfg = whatsappConfig((k) => ({ WHATSAPP_ACCESS_TOKEN: "tok", WHATSAPP_PHONE_NUMBER_ID: "123" })[k]);
+    expect((await sendWhatsApp(cfg, whatsappTemplatePayload("224", "t", "fr", ["x"]), fetchFn)).ok).toBe(true);
+    expect((await sendEmail({ apiKey: "k", from: "a@b.c" }, { to: "a@b.c", subject: "s", text: "t" }, fetchFn)).ok).toBe(true);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("un fournisseur qui ne répond pas donne une erreur, pas un blocage", async () => {
+    const fetchFn = vi.fn(async () => {
+      throw new DOMException("The operation timed out.", "TimeoutError");
+    });
+    const cfg = whatsappConfig((k) => ({ WHATSAPP_ACCESS_TOKEN: "tok", WHATSAPP_PHONE_NUMBER_ID: "123" })[k]);
+    const r = await sendWhatsApp(cfg, whatsappTemplatePayload("224", "t", "fr", ["x"]), fetchFn);
+    expect(r).toEqual({ ok: false, error: "whatsapp: The operation timed out.", sandbox: false });
+  });
+});
+
+describe("comparaison de secrets", () => {
+  it("à temps constant, sans accepter de valeur vide", async () => {
+    expect(await secretsEqual("abc", "abc")).toBe(true);
+    expect(await secretsEqual("abc", "abd")).toBe(false);
+    expect(await secretsEqual("abc", "abcd")).toBe(false);
+    expect(await secretsEqual("", "")).toBe(false);
+    expect(await secretsEqual(null, "abc")).toBe(false);
+    expect(await secretsEqual("abc", undefined)).toBe(false);
   });
 });
 
@@ -143,13 +240,24 @@ describe("fournisseurs", () => {
     });
   });
 
-  it("mode sandbox sans clés", async () => {
+  it("mode sandbox sans clés, seulement si MESSAGING_MODE=sandbox", async () => {
     const fetchFn = vi.fn();
     expect(whatsappConfig(() => undefined)).toBeNull();
-    const r = await sendWhatsApp(null, whatsappTemplatePayload("224", "t", "fr", ["x"]), fetchFn);
-    expect(r.ok && r.sandbox).toBe(true);
-    const e = await sendEmail(null, { to: "a@b.c", subject: "s", text: "t" }, fetchFn);
+    expect(messagingSandbox(() => undefined)).toBe(false);
+    expect(messagingSandbox((k) => (k === "MESSAGING_MODE" ? "sandbox" : undefined))).toBe(true);
+    const r = await sendWhatsApp(null, whatsappTemplatePayload("224", "t", "fr", ["x"]), fetchFn, { sandbox: true });
+    expect(r.ok && r.sandbox && r.providerId?.startsWith(SANDBOX_ID_PREFIX)).toBe(true);
+    const e = await sendEmail(null, { to: "a@b.c", subject: "s", text: "t" }, fetchFn, { sandbox: true });
     expect(e.ok && e.sandbox).toBe(true);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("sans clés et hors sandbox : erreur explicite, aucun faux succès", async () => {
+    const fetchFn = vi.fn();
+    const r = await sendWhatsApp(null, whatsappTemplatePayload("224", "t", "fr", ["x"]), fetchFn);
+    expect(r).toEqual({ ok: false, error: expect.stringContaining("whatsapp not configured"), sandbox: false });
+    const e = await sendEmail(null, { to: "a@b.c", subject: "s", text: "t" }, fetchFn);
+    expect(e).toEqual({ ok: false, error: expect.stringContaining("email not configured"), sandbox: false });
     expect(fetchFn).not.toHaveBeenCalled();
   });
 

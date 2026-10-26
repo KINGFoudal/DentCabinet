@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mapMtnStatus, mtnMomoAdapter, mtnMomoConfigFromEnv } from "./mtn-momo";
 import { mapOrangeStatus, orangeMoneyAdapter, orangeMoneyConfigFromEnv, orangeOrderId } from "./orange-money";
 import { sandboxAdapter, SANDBOX_SIGNATURE_HEADER, signedSandboxNotification } from "./sandbox";
-import { TokenCache } from "./util";
+import { TokenCache, withTimeout } from "./util";
 import type { Fetch, InitiateInput } from "../types";
 
 const TX = "3f2b9c1e-7a4d-4b8e-9f00-1234567890ab";
@@ -64,6 +64,21 @@ describe("Orange Money Web Payment", () => {
     expect(sent.order_id).toBe(orangeOrderId(TX));
 
     expect(r).toMatchObject({ status: "pending", providerReference: "pt123", redirectUrl: "https://webpayment.example/pay/pt123", webhookSecret: "nt456" });
+  });
+
+  it("borne chaque appel réseau par un délai", async () => {
+    const { fetch, calls } = mockFetch([
+      () => jsonRes({ access_token: "tok", expires_in: 3600 }),
+      () => jsonRes({ pay_token: "pt", payment_url: "https://x", notif_token: "n" }, 201),
+    ]);
+    await orangeMoneyAdapter(config, fetch, new TokenCache()).initiate(input);
+    for (const c of calls) expect(c.init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("échoue proprement si l'opérateur ne répond pas", async () => {
+    const hanging: Fetch = (_url, init) =>
+      new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)));
+    await expect(withTimeout(hanging, 20)("https://api.example")).rejects.toMatchObject({ name: "TimeoutError" });
   });
 
   it("interroge transactionstatus et convertit le statut", async () => {

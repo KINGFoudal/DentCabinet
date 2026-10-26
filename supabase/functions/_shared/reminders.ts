@@ -30,6 +30,11 @@ export const SAME_DAY_LEAD_MS = 2 * 3600 * 1000;
 export const SAME_DAY_EARLIEST_HOUR = 7;
 /** Nombre maximum de tentatives pour un même rappel. */
 export const MAX_ATTEMPTS = 3;
+/**
+ * Une ligne restée « queued » plus longtemps que ce délai vient d'une exécution interrompue
+ * (délai dépassé, plantage) : elle est traitée comme un échec, donc retentée.
+ */
+export const QUEUED_STALE_MS = 15 * 60 * 1000;
 
 /** Remplace {{variable}} (espaces tolérés) ; une variable inconnue ou absente devient vide. */
 export function renderTemplate(body: string, vars: TemplateVars): string {
@@ -164,7 +169,26 @@ export type ExistingLog = {
   channel: string;
   status: string;
   attempts: number;
+  updated_at?: string | null;
 };
+
+/** Ligne « queued » abandonnée par une exécution interrompue. */
+export function isStaleQueued(log: Pick<ExistingLog, "status" | "updated_at">, now: Date): boolean {
+  if (log.status !== "queued" || !log.updated_at) return false;
+  const at = new Date(log.updated_at).getTime();
+  return Number.isFinite(at) && now.getTime() - at > QUEUED_STALE_MS;
+}
+
+/** Un rappel déjà journalisé peut-il être retenté ? (échec, ou « queued » abandonné) */
+export function isRetryable(log: ExistingLog, now: Date): boolean {
+  if (log.attempts >= MAX_ATTEMPTS) return false;
+  return log.status === "failed" || isStaleQueued(log, now);
+}
+
+/** Lignes « queued » abandonnées qui ne seront plus retentées : à passer en « failed ». */
+export function abandonedLogs(logs: ExistingLog[], now: Date): ExistingLog[] {
+  return logs.filter((l) => isStaleQueued(l, now) && l.attempts >= MAX_ATTEMPTS);
+}
 
 export type ReminderJob = {
   appointment_id: string;
@@ -177,8 +201,11 @@ export type ReminderJob = {
   subject: string | null;
   body: string;
   vars: TemplateVars;
-  /** Ligne existante en échec à réessayer (sinon nouvelle ligne). */
-  retry?: { id: string; attempts: number };
+  /**
+   * Ligne existante à réessayer (sinon nouvelle ligne) : la réservation est conditionnée à
+   * son état lu (statut, tentatives, date de mise à jour) pour éviter un double envoi.
+   */
+  retry?: { id: string; attempts: number; status: string; updated_at: string | null };
 };
 
 export function formatDateLong(at: Date, locale: string, timeZone: string) {
@@ -255,7 +282,7 @@ export function selectReminders(input: {
       const tpl = pickTemplate(input.templates, a.cabinet_id, kind, channel, locale);
       if (!tpl) continue;
       const existing = logs.get(`${a.id}|${kind}|${channel}`);
-      if (existing && (existing.status !== "failed" || existing.attempts >= MAX_ATTEMPTS)) continue;
+      if (existing && !isRetryable(existing, input.now)) continue;
       jobs.push({
         appointment_id: a.id,
         cabinet_id: a.cabinet_id,
@@ -267,7 +294,9 @@ export function selectReminders(input: {
         subject: tpl.subject ? renderTemplate(tpl.subject, vars) : null,
         body: renderTemplate(tpl.body, vars),
         vars,
-        retry: existing ? { id: existing.id, attempts: existing.attempts } : undefined,
+        retry: existing
+          ? { id: existing.id, attempts: existing.attempts, status: existing.status, updated_at: existing.updated_at ?? null }
+          : undefined,
       });
     }
   }
@@ -290,4 +319,10 @@ export function whatsappParam(text: string, max = 900): string {
 /** Numéro E.164 -> format attendu par l'API WhatsApp (chiffres seulement). */
 export function whatsappRecipient(e164: string): string {
   return e164.replace(/\D/g, "");
+}
+
+/** Filtre PostgREST de réservation d'une ligne à réessayer (mise à jour conditionnelle). */
+export function retryReservationFilter(retry: NonNullable<ReminderJob["retry"]>): string {
+  const base = `id=eq.${retry.id}&status=eq.${retry.status}&attempts=eq.${retry.attempts}`;
+  return retry.status === "queued" && retry.updated_at ? `${base}&updated_at=eq.${encodeURIComponent(retry.updated_at)}` : base;
 }

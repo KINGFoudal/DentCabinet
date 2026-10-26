@@ -7,15 +7,23 @@
  *
  * Idempotence : une ligne notification_log est réservée (contrainte d'unicité
  * appointment_id + kind + channel) AVANT l'envoi ; une exécution concurrente ne renvoie rien.
- * Sans clés WhatsApp / email : mode sandbox, le journal est écrit sans envoi réel.
+ * Une ligne restée « queued » plus de 15 min (exécution interrompue) est retentée.
+ * Chaque envoi est isolé : une erreur est journalisée (ligne « failed ») et la boucle continue.
+ *
+ * Sans clés WhatsApp / email :
+ *   - MESSAGING_MODE=sandbox (local) : rien n'est envoyé ; la ligne est écrite avec
+ *     status « sent », provider_message_id « sandbox-… » et error « sandbox: non envoyé … » ;
+ *   - sinon : la ligne passe en « failed » avec « whatsapp/email not configured ».
  */
 
 // @ts-expect-error -- Deno exige l'extension .ts dans les imports relatifs.
-import { candidateRange, selectReminders, whatsappParam, whatsappRecipient, type ExistingLog, type ReminderAppointment, type ReminderCabinet, type ReminderJob, type ReminderPatient, type ReminderTemplate } from "../_shared/reminders.ts";
+import { abandonedLogs, candidateRange, retryReservationFilter, selectReminders, whatsappParam, whatsappRecipient, type ExistingLog, type ReminderAppointment, type ReminderCabinet, type ReminderJob, type ReminderPatient, type ReminderTemplate } from "../_shared/reminders.ts";
 // @ts-expect-error -- idem
-import { emailConfig, sendEmail, sendWhatsApp, whatsappConfig, whatsappLanguage, whatsappTemplatePayload, type SendResult } from "../_shared/messaging.ts";
+import { emailConfig, messagingSandbox, SANDBOX_NOTE, SEND_TIMEOUT_MS, sendEmail, sendWhatsApp, whatsappConfig, whatsappLanguage, whatsappTemplatePayload, type SendResult } from "../_shared/messaging.ts";
 // @ts-expect-error -- idem
 import { chunks, inList, Rest } from "../_shared/rest.ts";
+// @ts-expect-error -- idem
+import { secretsEqual } from "../_shared/secrets.ts";
 
 type DenoLike = {
   env: { get(key: string): string | undefined };
@@ -27,11 +35,13 @@ const env = (k: string) => Deno.env.get(k);
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 async function authorized(req: Request) {
   const service = env("SUPABASE_SERVICE_ROLE_KEY");
   const given = req.headers.get("x-cron-secret");
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (service && bearer === service) return true;
+  if (service && bearer && (await secretsEqual(bearer, service))) return true;
   if (!given) return false;
   // Secret fourni par l'environnement, sinon celui conservé dans Vault (public.reminders_cron_secret).
   let cron = env("REMINDERS_CRON_SECRET");
@@ -40,10 +50,11 @@ async function authorized(req: Request) {
       method: "POST",
       headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" },
       body: "{}",
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
     cron = res.ok ? ((await res.json()) as string | null) ?? undefined : undefined;
   }
-  return !!cron && given === cron;
+  return secretsEqual(given, cron);
 }
 
 type CabinetRow = ReminderCabinet & { subscription_status: string; trial_ends_at: string | null };
@@ -53,16 +64,27 @@ function cabinetActive(c: CabinetRow, now: Date) {
   return c.subscription_status === "trialing" && (!c.trial_ends_at || new Date(c.trial_ends_at) > now);
 }
 
+/** Lignes dont `column` est dans `ids`, par lots d'identifiants et paginées (pas de troncature). */
 async function loadAll<T>(rest: Rest, table: string, select: string, column: string, ids: string[], extra = "") {
   const out: T[] = [];
-  for (const part of chunks(ids)) out.push(...(await rest.select<T>(`${table}?select=${select}&${column}=${inList(part)}${extra}`)));
+  for (const part of chunks(ids)) {
+    out.push(...(await rest.selectAll<T>(`${table}?select=${select}&${column}=${inList(part)}${extra}&order=id`)));
+  }
   return out;
 }
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
-  if (!(await authorized(req))) return json({ error: "unauthorized" }, 401);
+  try {
+    if (!(await authorized(req))) return json({ error: "unauthorized" }, 401);
+    return await run(req);
+  } catch (e) {
+    console.error("send-reminders", errorMessage(e));
+    return json({ error: "internal error" }, 500);
+  }
+});
 
+async function run(req: Request) {
   const input = (await req.json().catch(() => ({}))) as { now?: string; dry_run?: boolean };
   const now = input.now ? new Date(input.now) : new Date();
   if (Number.isNaN(now.getTime())) return json({ error: "invalid now" }, 400);
@@ -70,10 +92,10 @@ Deno.serve(async (req) => {
   const rest = new Rest(env("SUPABASE_URL")!, env("SUPABASE_SERVICE_ROLE_KEY")!);
   const [from, to] = candidateRange(now);
 
-  const appointments = await rest.select<ReminderAppointment>(
+  const appointments = await rest.selectAll<ReminderAppointment>(
     `appointments?select=id,cabinet_id,patient_id,dentist_id,starts_at,status,deleted_at` +
       `&starts_at=gte.${encodeURIComponent(from.toISOString())}&starts_at=lt.${encodeURIComponent(to.toISOString())}` +
-      `&status=in.(scheduled,confirmed)&deleted_at=is.null&patient_id=not.is.null&order=starts_at`,
+      `&status=in.(scheduled,confirmed)&deleted_at=is.null&patient_id=not.is.null&order=starts_at,id`,
   );
   if (!appointments.length) return json({ checked: 0, sent: 0, failed: 0, skipped: 0 });
 
@@ -95,7 +117,13 @@ Deno.serve(async (req) => {
       cabinetIds,
       "&kind=in.(reminder_day_before,reminder_same_day)",
     ),
-    loadAll<ExistingLog>(rest, "notification_log", "id,appointment_id,kind,channel,status,attempts", "appointment_id", appointments.map((a) => a.id)),
+    loadAll<ExistingLog>(
+      rest,
+      "notification_log",
+      "id,appointment_id,kind,channel,status,attempts,updated_at",
+      "appointment_id",
+      appointments.map((a) => a.id),
+    ),
     loadAll<{ user_id: string; display_name: string | null }>(
       rest,
       "memberships",
@@ -126,80 +154,121 @@ Deno.serve(async (req) => {
   });
   if (input.dry_run) return json({ checked: appointments.length, jobs });
 
+  const sandbox = messagingSandbox(env);
   const wa = whatsappConfig(env);
   const mail = emailConfig(env);
   const cabinetNames = new Map(cabinetRows.map((c) => [c.id, c.name]));
   let sent = 0;
+  let simulated = 0;
   let failed = 0;
   let skipped = 0;
 
-  for (const job of jobs) {
-    // 1. Réservation de la ligne du journal (empêche le double envoi).
-    let logId: string | null = null;
-    if (job.retry) {
-      const rows = await rest.update<{ id: string }>(
-        "notification_log",
-        `id=eq.${job.retry.id}&status=eq.failed&attempts=eq.${job.retry.attempts}`,
-        { status: "queued", attempts: job.retry.attempts + 1, error: null, recipient: job.recipient },
-      );
-      logId = rows[0]?.id ?? null;
-    } else {
-      const rows = await rest.insert<{ id: string }>(
-        "notification_log",
-        {
-          cabinet_id: job.cabinet_id,
-          appointment_id: job.appointment_id,
-          patient_id: job.patient_id,
-          kind: job.kind,
-          channel: job.channel,
-          recipient: job.recipient,
-          status: "queued",
-          attempts: 1,
-        },
-        { onConflict: "appointment_id,kind,channel", ignoreDuplicates: true },
-      );
-      logId = rows[0]?.id ?? null;
-    }
-    if (!logId) {
-      skipped++;
-      continue;
-    }
-
-    // 2. Envoi.
-    let result: SendResult;
-    if (job.channel === "whatsapp") {
-      result = await sendWhatsApp(
-        wa,
-        whatsappTemplatePayload(
-          whatsappRecipient(job.recipient),
-          wa?.reminderTemplate ?? "nimba_rappel_rdv",
-          whatsappLanguage(job.locale, env),
-          [whatsappParam(job.body)],
-        ),
-      );
-    } else {
-      result = await sendEmail(mail, {
-        to: job.recipient,
-        subject: job.subject || (job.locale === "en" ? "Appointment reminder" : "Rappel de rendez-vous"),
-        text: job.body,
-        idempotencyKey: `${job.appointment_id}-${job.kind}-${job.retry ? job.retry.attempts + 1 : 1}`,
-        fromName: cabinetNames.get(job.cabinet_id),
+  // Lignes « queued » abandonnées après la dernière tentative : marquées en échec (plus de faux « en cours »).
+  for (const l of abandonedLogs(logs, now)) {
+    try {
+      await rest.update("notification_log", retryReservationFilter({ id: l.id, attempts: l.attempts, status: "queued", updated_at: l.updated_at ?? null }), {
+        status: "failed",
+        error: "interrupted: still queued after 15 min",
       });
+    } catch (e) {
+      console.error("send-reminders: abandoned log", l.id, errorMessage(e));
     }
+  }
 
-    // 3. Résultat.
-    await rest.update("notification_log", `id=eq.${logId}`, result.ok
-      ? { status: "sent", provider_message_id: result.providerId, sent_at: new Date().toISOString(), error: null }
-      : { status: "failed", error: result.error.slice(0, 500) });
-    if (result.ok) sent++;
-    else failed++;
+  for (const job of jobs) {
+    let logId: string | null = null;
+    try {
+      // 1. Réservation de la ligne du journal (empêche le double envoi).
+      if (job.retry) {
+        const rows = await rest.update<{ id: string }>("notification_log", retryReservationFilter(job.retry), {
+          status: "queued",
+          attempts: job.retry.attempts + 1,
+          error: null,
+          recipient: job.recipient,
+        });
+        logId = rows[0]?.id ?? null;
+      } else {
+        const rows = await rest.insert<{ id: string }>(
+          "notification_log",
+          {
+            cabinet_id: job.cabinet_id,
+            appointment_id: job.appointment_id,
+            patient_id: job.patient_id,
+            kind: job.kind,
+            channel: job.channel,
+            recipient: job.recipient,
+            status: "queued",
+            attempts: 1,
+          },
+          { onConflict: "appointment_id,kind,channel", ignoreDuplicates: true },
+        );
+        logId = rows[0]?.id ?? null;
+      }
+      if (!logId) {
+        skipped++;
+        continue;
+      }
+
+      // 2. Envoi.
+      let result: SendResult;
+      if (job.channel === "whatsapp") {
+        result = await sendWhatsApp(
+          wa,
+          whatsappTemplatePayload(
+            whatsappRecipient(job.recipient),
+            wa?.reminderTemplate ?? "nimba_rappel_rdv",
+            whatsappLanguage(job.locale, env),
+            [whatsappParam(job.body)],
+          ),
+          undefined,
+          { sandbox },
+        );
+      } else {
+        result = await sendEmail(
+          mail,
+          {
+            to: job.recipient,
+            subject: job.subject || (job.locale === "en" ? "Appointment reminder" : "Rappel de rendez-vous"),
+            text: job.body,
+            idempotencyKey: `${job.appointment_id}-${job.kind}-${job.retry ? job.retry.attempts + 1 : 1}`,
+            fromName: cabinetNames.get(job.cabinet_id),
+          },
+          undefined,
+          { sandbox },
+        );
+      }
+
+      // 3. Résultat. Un envoi simulé est signalé dans `error` (le schéma n'a pas de statut dédié).
+      await rest.update(
+        "notification_log",
+        `id=eq.${logId}`,
+        result.ok
+          ? { status: "sent", provider_message_id: result.providerId, sent_at: new Date().toISOString(), error: result.sandbox ? SANDBOX_NOTE : null }
+          : { status: "failed", provider_message_id: null, error: result.error.slice(0, 500) },
+      );
+      if (!result.ok) failed++;
+      else if (result.sandbox) simulated++;
+      else sent++;
+    } catch (e) {
+      failed++;
+      const message = errorMessage(e);
+      console.error("send-reminders: job", job.appointment_id, job.kind, job.channel, message);
+      if (logId) {
+        // Échec après réservation : la ligne devient retentable au lieu de rester « queued ».
+        await rest
+          .update("notification_log", `id=eq.${logId}`, { status: "failed", error: `error: ${message}`.slice(0, 500) })
+          .catch((e2: unknown) => console.error("send-reminders: log update", logId, errorMessage(e2)));
+      }
+    }
   }
 
   return json({
     checked: appointments.length,
     sent,
+    simulated,
     failed,
     skipped,
-    sandbox: { whatsapp: !wa, email: !mail },
+    sandbox,
+    configured: { whatsapp: !!wa, email: !!mail },
   });
-});
+}

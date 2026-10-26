@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json, Tables } from "@/lib/database.types";
 import { adminClient } from "@/lib/supabase/server";
 import { normalizeGuineaPhone } from "@/lib/format";
-import { callbackBaseUrl, isProductionDeployment, paymentsMode, sandboxAllowed, sandboxSecret } from "./config";
+import { safeNext } from "@/lib/auth/validation";
+import { callbackBaseUrl, paymentsMode, sandboxAllowed, sandboxSecret } from "./config";
 import { localeFromRequest, paymentInstructions } from "./instructions";
 import { providerAdapter } from "./registry";
 import { SANDBOX_SIGNATURE_HEADER, signedSandboxNotification } from "./providers/sandbox";
@@ -23,6 +24,13 @@ export class HttpError extends Error {
   }
 }
 
+/** Échec d'écriture en base pendant l'initiation (distinct d'un refus de l'opérateur). */
+class StorageError extends Error {
+  constructor(readonly detail: unknown) {
+    super("storage_error");
+  }
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function json(body: unknown, status = 200) {
@@ -35,13 +43,17 @@ export function errorResponse(e: unknown) {
   return json({ error: "internal_error" }, 500);
 }
 
-/** Le mode sandbox est interdit en production : on refuse plutôt que de simuler. */
+/**
+ * Paiements disponibles seulement en mode live, ou en sandbox explicitement demandé hors
+ * production : on refuse plutôt que de simuler.
+ */
 export function assertPaymentsAvailable() {
-  if (paymentsMode() === "sandbox" && isProductionDeployment()) throw new HttpError(503, "payments_not_configured");
+  if (paymentsMode() === "live") return;
+  if (!sandboxAllowed()) throw new HttpError(503, "payments_not_configured");
 }
 
 async function rolesIn(sb: Admin, cabinetId: string, userId: string): Promise<Role[]> {
-  const { data } = await sb
+  const { data, error } = await sb
     .from("memberships")
     .select("roles")
     .eq("cabinet_id", cabinetId)
@@ -49,6 +61,8 @@ async function rolesIn(sb: Admin, cabinetId: string, userId: string): Promise<Ro
     .eq("active", true)
     .is("deleted_at", null)
     .maybeSingle();
+  // Une erreur de base n'est pas un refus : 500 plutôt qu'un 403/404 trompeur.
+  if (error) throw error;
   return (data?.roles ?? []) as Role[];
 }
 
@@ -99,11 +113,12 @@ type Prepared = {
 
 async function prepareInvoice(sb: Admin, userId: string, body: InitiateBody): Promise<Prepared> {
   if (typeof body.invoice_id !== "string" || !UUID.test(body.invoice_id)) throw new HttpError(400, "invalid_invoice_id");
-  const { data: inv } = await sb
+  const { data: inv, error } = await sb
     .from("invoices")
     .select("id, cabinet_id, status, number, total_gnf, paid_gnf, deleted_at, patient:patients(portal_user_id)")
     .eq("id", body.invoice_id)
     .maybeSingle();
+  if (error) throw error;
   if (!inv) throw new HttpError(404, "invoice_not_found");
 
   const roles = await rolesIn(sb, inv.cabinet_id, userId);
@@ -199,9 +214,7 @@ export async function initiatePayment(req: Request, userId: string) {
 
   const origin = new URL(req.url).origin;
   const base = callbackBaseUrl(origin);
-  const returnPath = typeof body.return_path === "string" && body.return_path.startsWith("/") && !body.return_path.startsWith("//")
-    ? body.return_path
-    : prepared.defaultReturn;
+  const returnPath = safeNext(typeof body.return_path === "string" ? body.return_path : null, prepared.defaultReturn);
   const sep = returnPath.includes("?") ? "&" : "?";
   const locale = localeFromRequest(req);
   const sandbox = paymentsMode() === "sandbox";
@@ -217,12 +230,16 @@ export async function initiatePayment(req: Request, userId: string) {
       cancelUrl: `${base}${returnPath}${sep}payment=${id}&cancelled=1`,
       locale,
     });
-    await sb
+    // Sans référence ni jeton enregistrés, le webhook ne pourrait pas être vérifié : la
+    // transaction échoue (catch ci-dessous : statut failed, réponse 502).
+    const { error: refError } = await sb
       .from("payment_transactions")
       .update({ provider_reference: result.providerReference, raw: (result.raw ?? null) as Json })
       .eq("id", id);
+    if (refError) throw new StorageError(refError);
     if (result.webhookSecret) {
-      await sb.from("payment_transaction_secrets").insert({ transaction_id: id, secret: result.webhookSecret });
+      const { error: secretError } = await sb.from("payment_transaction_secrets").insert({ transaction_id: id, secret: result.webhookSecret });
+      if (secretError) throw new StorageError(secretError);
     }
     let status: FinalStatus = "pending";
     if (result.status !== "pending") {
@@ -236,7 +253,7 @@ export async function initiatePayment(req: Request, userId: string) {
       ...(sandbox ? { sandbox: true } : {}),
     };
   } catch (e) {
-    const reason = e instanceof PaymentProviderError ? e.message : "provider_error";
+    const reason = e instanceof PaymentProviderError ? e.message : e instanceof StorageError ? "storage_error" : "provider_error";
     console.error("[payments] initiate", provider, e instanceof PaymentProviderError ? { status: e.httpStatus, details: e.details } : e);
     await completeTransaction(sb, id, "failed", { reason }).catch(() => undefined);
     throw new HttpError(502, "provider_unavailable");
@@ -249,7 +266,8 @@ export async function initiatePayment(req: Request, userId: string) {
 
 async function loadTransaction(sb: Admin, id: string) {
   if (!UUID.test(id)) throw new HttpError(400, "invalid_id");
-  const { data } = await sb.from("payment_transactions").select("*").eq("id", id).maybeSingle();
+  const { data, error } = await sb.from("payment_transactions").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
   if (!data) throw new HttpError(404, "not_found");
   return data;
 }
@@ -300,6 +318,7 @@ export async function transactionStatus(id: string, userId: string) {
 
 export async function handleWebhook(providerParam: string, body: string, url: URL, headers: Headers) {
   if (!PROVIDERS.includes(providerParam as ProviderId)) throw new HttpError(404, "unknown_provider");
+  assertPaymentsAvailable();
   const provider = providerParam as ProviderId;
   const adapter = providerAdapter(provider);
   let parsed;
@@ -312,21 +331,28 @@ export async function handleWebhook(providerParam: string, body: string, url: UR
   const sb = adminClient();
   let tx: Tx | null = null;
   if (parsed.transactionId && UUID.test(parsed.transactionId)) {
-    const { data } = await sb.from("payment_transactions").select("*").eq("id", parsed.transactionId).eq("provider", provider).maybeSingle();
+    const { data, error } = await sb.from("payment_transactions").select("*").eq("id", parsed.transactionId).eq("provider", provider).maybeSingle();
+    if (error) throw error;
     tx = data;
   }
   if (!tx && parsed.providerReference) {
-    const { data } = await sb
+    const { data, error } = await sb
       .from("payment_transactions")
       .select("*")
       .eq("provider", provider)
       .eq("provider_reference", parsed.providerReference)
       .maybeSingle();
+    if (error) throw error;
     tx = data;
   }
   if (!tx) throw new HttpError(404, "unknown_transaction");
 
-  const { data: secretRow } = await sb.from("payment_transaction_secrets").select("secret").eq("transaction_id", tx.id).maybeSingle();
+  const { data: secretRow, error: secretError } = await sb
+    .from("payment_transaction_secrets")
+    .select("secret")
+    .eq("transaction_id", tx.id)
+    .maybeSingle();
+  if (secretError) throw secretError;
   const verified = await adapter
     .verifyWebhook({
       parsed,

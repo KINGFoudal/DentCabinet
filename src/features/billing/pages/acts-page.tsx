@@ -16,6 +16,7 @@ import { searchKey } from "@/features/patients/components/patient-picker";
 import { useActs, type Act } from "../data";
 import { actsToImport } from "../lib/catalog";
 import { useBilling } from "../components/common";
+import { useReportWrite } from "@/lib/sync/report-write";
 
 /** Catalogue des actes et tarifs du cabinet (/app/parametres/actes, administrateur). */
 export default function ActsPage() {
@@ -28,6 +29,7 @@ export default function ActsPage() {
 }
 
 function ActsScreen() {
+  const report = useReportWrite();
   const { t, gnf, can, cabinetId } = useBilling();
   const toast = useToast();
   const acts = useActs(cabinetId);
@@ -215,7 +217,7 @@ function ActsScreen() {
         message={t("billing.acts.deleteMessage", { label: toDelete?.label ?? "" })}
         confirmLabel={t("common.delete")}
         cancelLabel={t("common.cancel")}
-        onConfirm={() => toDelete && void softDelete("acts", toDelete.id)}
+        onConfirm={() => toDelete && report(softDelete("acts", toDelete.id))}
       />
     </>
   );

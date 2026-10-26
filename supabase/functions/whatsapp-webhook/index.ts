@@ -11,6 +11,8 @@
 import { extractStatuses, shouldApplyStatus, verifyMetaSignature } from "../_shared/whatsapp-status.ts";
 // @ts-expect-error -- idem
 import { Rest } from "../_shared/rest.ts";
+// @ts-expect-error -- idem
+import { secretsEqual } from "../_shared/secrets.ts";
 
 type DenoLike = {
   env: { get(key: string): string | undefined };
@@ -23,7 +25,7 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   if (req.method === "GET") {
     const token = env("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
-    if (token && url.searchParams.get("hub.mode") === "subscribe" && url.searchParams.get("hub.verify_token") === token) {
+    if (url.searchParams.get("hub.mode") === "subscribe" && (await secretsEqual(url.searchParams.get("hub.verify_token"), token))) {
       return new Response(url.searchParams.get("hub.challenge") ?? "", { status: 200 });
     }
     return new Response("forbidden", { status: 403 });

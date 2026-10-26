@@ -60,7 +60,7 @@ npx supabase secrets set SEND_SMS_HOOK_SECRETS='v1,whsec_...'   # le secret gén
 npx supabase secrets set REMINDERS_CRON_SECRET='<secret des rappels>'
 ```
 
-Sans clés WhatsApp ni email, les fonctions restent en **mode simulation** : elles journalisent sans envoyer. Quand vous aurez les accès :
+Sans clés WhatsApp ni email, les fonctions **refusent d'envoyer** : le code de connexion de l'espace patient n'est pas envoyé (erreur) et les rappels passent en « failed » avec « whatsapp/email not configured ». Ne définissez jamais `MESSAGING_MODE=sandbox` en production (simulation réservée au local). Quand vous aurez les accès :
 
 ```bash
 npx supabase secrets set WHATSAPP_ACCESS_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=...
@@ -93,7 +93,8 @@ select vault.create_secret('<même valeur que REMINDERS_CRON_SECRET>', 'reminder
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_ZUqdWpNcn1XaJujknhetLg_-p7R21Q1` (clé publique) |
    | `SUPABASE_SERVICE_ROLE_KEY` | Supabase > Project Settings > **API Keys** > clé secrète (`service_role` ou `sb_secret_...`) |
    | `NEXT_PUBLIC_SITE_URL` | `https://nimba-dentaire.vercel.app` (ou votre domaine) |
-   | `PAYMENTS_MODE` | `live` quand les contrats opérateurs sont signés (voir étape 7) |
+   | `NIMBA_ENV` | `production` |
+   | `PAYMENTS_MODE` | `live` quand les contrats opérateurs sont signés (voir étape 7) ; sans valeur, paiements mobiles désactivés |
 
 5. **Deploy**.
 6. L'application est sur la branche `nimba-v1`. Deux possibilités :
@@ -130,5 +131,5 @@ Puis **Redeploy**. Les valeurs exactes (adresses de production, devise) sont fou
 - [ ] Création d'un patient, d'un rendez-vous, d'une facture ; numéro attribué (F-2026-00001).
 - [ ] Mode avion sur le téléphone : l'agenda et les patients restent consultables ; une modification faite hors ligne se synchronise au retour du réseau.
 - [ ] Paramètres > Cabinet : activer la réservation en ligne ; la page `/c/<adresse-du-cabinet>` s'affiche.
-- [ ] Espace patient `/patient` : réception du code (journal de la fonction `send-sms-hook` tant que WhatsApp n'est pas configuré : Supabase > Edge Functions > send-sms-hook > Logs).
+- [ ] Espace patient `/patient` : réception du code par WhatsApp (nécessite les clés WhatsApp ; le code n'est jamais écrit dans les journaux).
 - [ ] Supabase > **Advisors** : aucune alerte de sécurité critique.

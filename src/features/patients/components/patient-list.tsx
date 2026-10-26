@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import { filterPatient, matchesPatient, sortPatients, type PatientFilter, type PatientSort } from "../lib/search";
 import { PatientFormDialog } from "./patient-form-dialog";
 import { Avatar } from "./avatar";
+import { useReportWrite } from "@/lib/sync/report-write";
 
 const PREFS_KEY = "nimba-patients-list";
 const PAGE_SIZE = 100;
@@ -33,6 +34,7 @@ function readPrefs(): { sort: PatientSort; filter: PatientFilter } {
 }
 
 export function PatientList() {
+  const report = useReportWrite();
   const cabinetId = useCabinetId();
   const { can, roles, cabinet } = useCabinet();
   const { t, locale } = useI18n();
@@ -234,7 +236,7 @@ export function PatientList() {
                             variant="secondary"
                             onClick={(e) => {
                               e.stopPropagation();
-                              void restore(p.id);
+                              report(restore(p.id));
                             }}
                           >
                             {t("patients.archive.restore")}

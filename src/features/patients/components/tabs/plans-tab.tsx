@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import { groupBySteps, lineTotal, planTotals } from "../../lib/clinical";
 import { isValidTooth } from "../../lib/fdi";
 import { staffName, useStaffNames } from "../../lib/hooks";
+import { useReportWrite } from "@/lib/sync/report-write";
 
 type Plan = Row<"treatment_plans">;
 type Item = Row<"treatment_plan_items">;
@@ -86,6 +87,7 @@ export function PlansTab({ patientId }: { patientId: string }) {
 }
 
 function PlanCard({ plan, items, onEdit }: { plan: Plan; items: Item[]; onEdit: () => void }) {
+  const report = useReportWrite();
   const { t, locale } = useI18n();
   const toast = useToast();
   const cabinetId = useCabinetId();
@@ -115,7 +117,7 @@ function PlanCard({ plan, items, onEdit }: { plan: Plan; items: Item[]; onEdit: 
             <Select
               aria-label={t("patients.plans.status")}
               value={plan.status}
-              onChange={(e) => void mutate("treatment_plans", { id: plan.id, status: e.target.value as PlanStatus })}
+              onChange={(e) => report(mutate("treatment_plans", { id: plan.id, status: e.target.value as PlanStatus }))}
               className="h-8 w-36"
             >
               {PLAN_STATUSES.map((s) => (
@@ -166,7 +168,7 @@ function PlanCard({ plan, items, onEdit }: { plan: Plan; items: Item[]; onEdit: 
                         <Select
                           aria-label={t("patients.plans.status")}
                           value={item.status}
-                          onChange={(e) => void setItemStatus(item, e.target.value as ItemStatus)}
+                          onChange={(e) => report(setItemStatus(item, e.target.value as ItemStatus))}
                           className="h-8 w-28"
                         >
                           {ITEM_STATUSES.map((s) => (

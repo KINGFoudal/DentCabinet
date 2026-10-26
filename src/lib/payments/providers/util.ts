@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { PROVIDER_TIMEOUT_MS } from "../config";
+import type { Fetch } from "../types";
 
 /** Comparaison à temps constant de deux chaînes (secrets de webhook). */
 export function safeEqual(a: string | null | undefined, b: string | null | undefined) {
@@ -42,4 +44,9 @@ export class TokenCache {
     this.token = null;
     this.expiresAt = 0;
   }
+}
+
+/** Ajoute un délai maximal (AbortSignal.timeout) à chaque appel, sauf si un signal est déjà fourni. */
+export function withTimeout(fetchImpl: Fetch, ms = PROVIDER_TIMEOUT_MS): Fetch {
+  return (input, init) => fetchImpl(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(ms) });
 }

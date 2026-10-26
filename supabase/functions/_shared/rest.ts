@@ -4,6 +4,9 @@
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
+/** Délai maximal d'une requête PostgREST. */
+export const REST_TIMEOUT_MS = 10_000;
+
 export class Rest {
   constructor(
     private url: string,
@@ -25,6 +28,7 @@ export class Rest {
       method,
       headers: this.headers(prefer ? { Prefer: prefer } : {}),
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(REST_TIMEOUT_MS),
     });
     const text = await res.text();
     if (!res.ok) throw new Error(`${method} ${path.split("?")[0]}: ${res.status} ${text}`);
@@ -33,6 +37,21 @@ export class Rest {
 
   select<T>(path: string) {
     return this.call<T[]>("GET", path);
+  }
+
+  /**
+   * Lit toutes les lignes, page par page : PostgREST tronque silencieusement une réponse à
+   * `max_rows` (1000 par défaut). `path` doit contenir un ordre stable (ex. `order=starts_at,id`).
+   * S'arrête sur une page vide, ce qui reste juste si le serveur plafonne sous `pageSize`.
+   */
+  async selectAll<T>(path: string, pageSize = 1000) {
+    const out: T[] = [];
+    const sep = path.includes("?") ? "&" : "?";
+    for (;;) {
+      const page = await this.select<T>(`${path}${sep}limit=${pageSize}&offset=${out.length}`);
+      if (page.length === 0) return out;
+      out.push(...page);
+    }
   }
 
   insert<T>(table: string, rows: unknown, opts: { onConflict?: string; ignoreDuplicates?: boolean } = {}) {

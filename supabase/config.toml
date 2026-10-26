@@ -274,7 +274,8 @@ max_frequency = "5s"
 # Envoi des codes par WhatsApp via l'Edge Function send-sms-hook.
 # Le secret partagé (format "v1,whsec_<base64>") est lu dans supabase/.env et
 # supabase/functions/.env (non versionnés, voir README). Sans clés WhatsApp, la fonction
-# est en mode simulation et écrit le code dans son journal.
+# refuse l'envoi, sauf avec MESSAGING_MODE=sandbox (local) : succès simulé, code jamais
+# journalisé (utiliser le numéro de démonstration ci-dessus).
 [auth.hook.send_sms]
 enabled = true
 uri = "http://host.docker.internal:54321/functions/v1/send-sms-hook"

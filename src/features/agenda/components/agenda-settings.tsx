@@ -20,6 +20,7 @@ import { useAppointmentTypes, useChairs, useDentists } from "../lib/data";
 import { hhmmToMinutes } from "../lib/grid";
 // Conversion heure locale du cabinet -> UTC (logique partagée avec les Edge Functions).
 import { zonedTime } from "../../../../supabase/functions/_shared/reminders";
+import { useReportWrite } from "@/lib/sync/report-write";
 
 type Tab = "chairs" | "types" | "schedules" | "timeOff";
 
@@ -74,6 +75,7 @@ function useEditableDentists() {
 // ---------------------------------------------------------------------------
 
 function ChairsEditor() {
+  const report = useReportWrite();
   const { t } = useI18n();
   const cabinetId = useCabinetId();
   const { can } = useCabinet();
@@ -130,7 +132,7 @@ function ChairsEditor() {
           className="flex gap-2 border-t border-border p-4"
           onSubmit={(e) => {
             e.preventDefault();
-            void add();
+            report(add());
           }}
         >
           <Input aria-label={t("agenda.settings.chairName")} placeholder={t("agenda.settings.chairName")} value={name} onChange={(e) => setName(e.target.value)} />
@@ -143,7 +145,7 @@ function ChairsEditor() {
       <ConfirmDialog
         open={!!toDelete}
         onClose={() => setToDelete(null)}
-        onConfirm={() => toDelete && void softDelete("chairs", toDelete.id)}
+        onConfirm={() => toDelete && report(softDelete("chairs", toDelete.id))}
         title={t("common.delete")}
         message={t("agenda.settings.confirmDelete", { name: toDelete?.name ?? "" })}
         confirmLabel={t("common.delete")}
@@ -159,6 +161,7 @@ function ChairsEditor() {
 // ---------------------------------------------------------------------------
 
 function TypesEditor() {
+  const report = useReportWrite();
   const { t } = useI18n();
   const cabinetId = useCabinetId();
   const { can } = useCabinet();
@@ -217,7 +220,7 @@ function TypesEditor() {
                   disabled={!write}
                   onBlur={(e) => {
                     const v = Math.round(Number(e.target.value));
-                    if (v >= 5 && v <= 480 && v !== ty.duration_minutes) void mutate("appointment_types", { id: ty.id, duration_minutes: v });
+                    if (v >= 5 && v <= 480 && v !== ty.duration_minutes) report(mutate("appointment_types", { id: ty.id, duration_minutes: v }));
                     else e.target.value = String(ty.duration_minutes);
                   }}
                 />
@@ -259,7 +262,7 @@ function TypesEditor() {
       <ConfirmDialog
         open={!!toDelete}
         onClose={() => setToDelete(null)}
-        onConfirm={() => toDelete && void softDelete("appointment_types", toDelete.id)}
+        onConfirm={() => toDelete && report(softDelete("appointment_types", toDelete.id))}
         title={t("common.delete")}
         message={t("agenda.settings.confirmDelete", { name: toDelete?.name ?? "" })}
         confirmLabel={t("common.delete")}
@@ -445,6 +448,7 @@ function fromLocalInput(value: string, timeZone: string) {
 }
 
 function TimeOffEditor() {
+  const report = useReportWrite();
   const { t, locale } = useI18n();
   const cabinetId = useCabinetId();
   const { cabinet } = useCabinet();
@@ -508,7 +512,7 @@ function TimeOffEditor() {
               className="grid gap-3 sm:grid-cols-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                void add();
+                report(add());
               }}
             >
               <Field label={t("agenda.settings.timeOffFor")}>
