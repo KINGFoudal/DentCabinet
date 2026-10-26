@@ -19,6 +19,7 @@ import { PatientAppointments } from "@/features/agenda/components/patient-appoin
 import { PatientBilling } from "@/features/billing/components/patient-billing";
 import { usePatient, usePatientMedical } from "../lib/hooks";
 import { Avatar } from "./avatar";
+import { FinishConsultationButton } from "./consultation";
 import { MedicalAlertsBanner } from "./medical-alerts";
 import { PatientFormDialog } from "./patient-form-dialog";
 import { SummaryTab } from "./tabs/summary-tab";
@@ -154,7 +155,8 @@ function PatientFileView({ id, initialTab }: { id: string | null; initialTab: Pa
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="no-print flex flex-wrap gap-2">
+          {!archived && <FinishConsultationButton patientId={patient.id} />}
           {can.patientsWrite && !archived && (
             <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
               <Pencil className="size-4" />

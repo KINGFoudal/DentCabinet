@@ -20,6 +20,24 @@ export function usePatientMedical(cabinetId: string, patientId: string, enabled 
   }, [cabinetId, patientId, enabled]);
 }
 
+/** Médicaments personnalisés du cabinet (non supprimés). */
+export function useMedications(cabinetId: string) {
+  return useLiveQuery(
+    async () => (await localDb().medications.where("cabinet_id").equals(cabinetId).toArray()).filter((m) => !m.deleted_at),
+    [cabinetId],
+  );
+}
+
+/** Ordonnances d'un patient (non supprimées), plus récentes d'abord. */
+export function usePatientPrescriptions(cabinetId: string, patientId: string | null) {
+  return useLiveQuery(async () => {
+    if (!patientId) return [];
+    return (await localDb().prescriptions.where("patient_id").equals(patientId).toArray())
+      .filter((r) => r.cabinet_id === cabinetId && !r.deleted_at)
+      .sort((a, b) => b.issued_at.localeCompare(a.issued_at));
+  }, [cabinetId, patientId]);
+}
+
 /** Nom affiché de chaque membre du cabinet (praticiens, auteurs des notes…). */
 export function useStaffNames(cabinetId: string) {
   return useLiveQuery(async () => {

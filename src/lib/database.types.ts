@@ -299,17 +299,23 @@ isOneToOne: false
                   ]
                 },"invoices": {
                   Row: {
-                    "cabinet_id": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"dentist_id": string | null,"due_date": string | null,"id": string,"issue_date": string,"notes": string | null,"number": string | null,"paid_gnf": number,"patient_id": string,"quote_id": string | null,"status": Database["public"]['Enums']["invoice_status"],"total_gnf": number,"updated_at": string
+                    "appointment_id": string | null,"cabinet_id": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"dentist_id": string | null,"due_date": string | null,"id": string,"issue_date": string,"notes": string | null,"number": string | null,"paid_gnf": number,"patient_id": string,"quote_id": string | null,"status": Database["public"]['Enums']["invoice_status"],"total_gnf": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "cabinet_id": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"dentist_id"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id": string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
+                    "appointment_id"?: string | null,"cabinet_id": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"dentist_id"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id": string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "cabinet_id"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"dentist_id"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id"?: string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
+                    "appointment_id"?: string | null,"cabinet_id"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"dentist_id"?: string | null,"due_date"?: string | null,"id"?: string,"issue_date"?: string,"notes"?: string | null,"number"?: string | null,"paid_gnf"?: number,"patient_id"?: string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["invoice_status"],"total_gnf"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "invoices_appointment_id_fkey"
+      columns: ["appointment_id","cabinet_id"]
+isOneToOne: false
+      referencedRelation: "appointments"
+      referencedColumns: ["id","cabinet_id"]
+    },{
       foreignKeyName: "invoices_cabinet_id_fkey"
       columns: ["cabinet_id"]
 isOneToOne: false
@@ -327,6 +333,26 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "quotes"
       referencedColumns: ["id","cabinet_id"]
+    }
+                  ]
+                },"medications": {
+                  Row: {
+                    "cabinet_id": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"duration": string | null,"form": string | null,"id": string,"instructions": string | null,"name": string,"posology": string | null,"strength": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cabinet_id": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"duration"?: string | null,"form"?: string | null,"id"?: string,"instructions"?: string | null,"name": string,"posology"?: string | null,"strength"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "cabinet_id"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"duration"?: string | null,"form"?: string | null,"id"?: string,"instructions"?: string | null,"name"?: string,"posology"?: string | null,"strength"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "medications_cabinet_id_fkey"
+      columns: ["cabinet_id"]
+isOneToOne: false
+      referencedRelation: "cabinets"
+      referencedColumns: ["id"]
     }
                   ]
                 },"memberships": {
@@ -593,22 +619,34 @@ isOneToOne: false
                   ]
                 },"prescriptions": {
                   Row: {
-                    "cabinet_id": string,"created_at": string,"deleted_at": string | null,"dentist_id": string,"id": string,"issued_at": string,"items": NonNullable<Json>,"notes": string | null,"patient_id": string,"shared_with_patient": boolean,"updated_at": string
+                    "appointment_id": string | null,"cabinet_id": string,"created_at": string,"deleted_at": string | null,"dentist_id": string,"id": string,"invoice_id": string | null,"issued_at": string,"items": NonNullable<Json>,"notes": string | null,"patient_id": string,"shared_with_patient": boolean,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "cabinet_id": string,"created_at"?: string,"deleted_at"?: string | null,"dentist_id": string,"id"?: string,"issued_at"?: string,"items"?: NonNullable<Json>,"notes"?: string | null,"patient_id": string,"shared_with_patient"?: boolean,"updated_at"?: string
+                    "appointment_id"?: string | null,"cabinet_id": string,"created_at"?: string,"deleted_at"?: string | null,"dentist_id": string,"id"?: string,"invoice_id"?: string | null,"issued_at"?: string,"items"?: NonNullable<Json>,"notes"?: string | null,"patient_id": string,"shared_with_patient"?: boolean,"updated_at"?: string
                   }
                   Update: {
-                    "cabinet_id"?: string,"created_at"?: string,"deleted_at"?: string | null,"dentist_id"?: string,"id"?: string,"issued_at"?: string,"items"?: NonNullable<Json>,"notes"?: string | null,"patient_id"?: string,"shared_with_patient"?: boolean,"updated_at"?: string
+                    "appointment_id"?: string | null,"cabinet_id"?: string,"created_at"?: string,"deleted_at"?: string | null,"dentist_id"?: string,"id"?: string,"invoice_id"?: string | null,"issued_at"?: string,"items"?: NonNullable<Json>,"notes"?: string | null,"patient_id"?: string,"shared_with_patient"?: boolean,"updated_at"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "prescriptions_appointment_id_fkey"
+      columns: ["appointment_id","cabinet_id"]
+isOneToOne: false
+      referencedRelation: "appointments"
+      referencedColumns: ["id","cabinet_id"]
+    },{
       foreignKeyName: "prescriptions_cabinet_id_fkey"
       columns: ["cabinet_id"]
 isOneToOne: false
       referencedRelation: "cabinets"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "prescriptions_invoice_id_fkey"
+      columns: ["invoice_id","cabinet_id"]
+isOneToOne: false
+      referencedRelation: "invoices"
+      referencedColumns: ["id","cabinet_id"]
     },{
       foreignKeyName: "prescriptions_patient_id_fkey"
       columns: ["patient_id","cabinet_id"]
