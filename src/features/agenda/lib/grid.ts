@@ -1,12 +1,17 @@
 /**
  * Calculs purs de l'agenda : plages de dates, positions dans la grille, chevauchements,
- * glisser-déposer (pas de 15 min), disponibilités (horaires, absences).
+ * glisser-déposer (pas de 5 min), disponibilités (horaires, absences).
  * Les « minutes » sont comptées depuis minuit, heure locale du cabinet.
  */
 import { addDays, dayBounds } from "@/lib/dates";
 
 export type View = "day" | "week" | "month";
-export const SNAP_MINUTES = 15;
+/** Pas des heures et des durées : 12:00, 12:05, 12:10… */
+export const SNAP_MINUTES = 5;
+/** Hauteur d'une case cliquable de la grille (un clic crée un RDV au début de la case). */
+export const CELL_MINUTES = 15;
+/** Durée maximale proposée pour un RDV (8 h). */
+export const MAX_DURATION = 8 * 60;
 export const DAY_MINUTES = 24 * 60;
 
 /** Statuts qui n'occupent plus le créneau (miroir des contraintes d'exclusion). */
@@ -102,6 +107,41 @@ export function localDay(iso: string, timeZone: string) {
 
 export function snap(minutes: number, step = SNAP_MINUTES) {
   return Math.round(minutes / step) * step;
+}
+
+/** Début de la case cliquée (`offsetPx` depuis le haut de la grille). */
+export function slotAt(offsetPx: number, from: number, hourPx: number, cell = CELL_MINUTES) {
+  return from + Math.floor(pxToMinutes(Math.max(0, offsetPx), hourPx) / cell) * cell;
+}
+
+export type GridLine = { minutes: number; kind: "hour" | "half" | "quarter" };
+
+/** Lignes de la grille : heures (traits pleins), demi-heures et quarts d'heure (plus légers). */
+export function gridLines(from: number, to: number): GridLine[] {
+  const out: GridLine[] = [];
+  for (let m = Math.ceil(from / 15) * 15; m < to; m += 15) {
+    out.push({ minutes: m, kind: m % 60 === 0 ? "hour" : m % 30 === 0 ? "half" : "quarter" });
+  }
+  return out;
+}
+
+/** Durées proposées (pas de 5 min) ; une durée existante hors pas reste proposée. */
+export function durationOptions(current?: number, step = SNAP_MINUTES, max = MAX_DURATION) {
+  const out: number[] = [];
+  for (let d = step; d <= max; d += step) out.push(d);
+  if (current && current > 0 && !out.includes(current)) {
+    out.push(current);
+    out.sort((a, b) => a - b);
+  }
+  return out;
+}
+
+/** « 90 » -> « 1 h 30 », « 45 » -> « 45 min ». */
+export function formatDuration(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} h ${String(m).padStart(2, "0")}` : `${h} h`;
 }
 
 /** Plage horaire affichée : 7 h - 20 h par défaut, élargie aux horaires et aux RDV. */
@@ -329,6 +369,21 @@ export function nextStatuses(status: string): Status[] {
       return ["scheduled"];
     default:
       return [];
+  }
+}
+
+/** Étape suivante du parcours au cabinet (bouton en un clic) : Arrivé → En soin → Terminé. */
+export function primaryNextStatus(status: string): Status | null {
+  switch (status) {
+    case "scheduled":
+    case "confirmed":
+      return "arrived";
+    case "arrived":
+      return "in_treatment";
+    case "in_treatment":
+      return "done";
+    default:
+      return null;
   }
 }
 

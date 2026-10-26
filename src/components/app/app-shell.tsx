@@ -9,6 +9,7 @@ import { useCabinet } from "@/lib/cabinet/cabinet-provider";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { useI18n } from "@/components/i18n-provider";
 import { SyncStatus } from "./sync-status";
+import { GlobalShortcuts } from "./shortcuts";
 import { cn } from "@/components/ui/cn";
 import { Select } from "@/components/ui/input";
 
@@ -74,6 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="truncate font-medium">{cabinet?.name ?? memberships[0]?.cabinet.name}</span>
           )}
           <div className="ml-auto flex items-center gap-1">
+            <GlobalShortcuts />
             <SyncStatus />
             <Select
               aria-label="Langue"

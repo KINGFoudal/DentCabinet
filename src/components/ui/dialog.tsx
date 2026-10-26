@@ -26,7 +26,12 @@ export function Dialog({
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
+    if (open && !d.open) {
+      d.showModal();
+      // showModal() place le focus sur le premier élément (le bouton Fermer) : on le donne
+      // plutôt au champ marqué `data-autofocus` (ex. recherche du patient).
+      d.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+    }
     if (!open && d.open) d.close();
     // Avec cacheComponents, la page quittée reste montée (masquée) : une modale ouverte
     // bloquerait alors les clics de la page suivante.

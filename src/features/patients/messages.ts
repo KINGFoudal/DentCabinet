@@ -312,6 +312,12 @@ export const messages = {
           other: "Autre",
         },
       },
+      recent: { title: "Patients récents" },
+      quick: {
+        title: "Nouveau patient",
+        createAndOpen: "Créer et ouvrir la fiche",
+        full: "Formulaire complet",
+      },
       picker: {
         selected: "Patient choisi",
         change: "Changer",
@@ -631,6 +637,12 @@ export const messages = {
           administrative: "Administrative",
           other: "Other",
         },
+      },
+      recent: { title: "Recent patients" },
+      quick: {
+        title: "New patient",
+        createAndOpen: "Create and open the file",
+        full: "Full form",
       },
       picker: {
         selected: "Selected patient",
