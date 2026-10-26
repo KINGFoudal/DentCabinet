@@ -12,3 +12,5 @@ Rules:
 ## Nimba Dentaire
 
 Lire `docs/ARCHITECTURE.md` avant toute modification (règles hors ligne, base de données, traductions, vérifications). Cahier des charges : `PROMPT.md`.
+
+Méthode de travail demandée par le propriétaire : la réalisation du projet (développement, corrections, vérifications) passe toujours par des sous-agents ; la session principale coordonne, fusionne et vérifie.
