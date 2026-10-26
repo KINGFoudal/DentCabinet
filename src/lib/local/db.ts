@@ -21,6 +21,7 @@ export const SYNCED_TABLES = {
   practitioner_schedules: { pk: "id", scope: "cabinet" },
   time_off: { pk: "id", scope: "cabinet" },
   acts: { pk: "id", scope: "cabinet" },
+  medications: { pk: "id", scope: "cabinet" },
   message_templates: { pk: "id", scope: "cabinet" },
   patients: { pk: "id", scope: "cabinet" },
   patient_medical: { pk: "patient_id", scope: "cabinet" },
@@ -106,6 +107,13 @@ export class NimbaDB extends Dexie {
       payments: "&id, cabinet_id, invoice_id, [cabinet_id+paid_at]",
       outbox: "++seq, [table+pk], table, status",
       meta: "&key",
+    });
+    // Version 2 : médicaments du cabinet ; liens consultation (ordonnance -> facture / RDV,
+    // facture -> RDV). Seules les tables modifiées sont redéclarées.
+    this.version(2).stores({
+      medications: "&id, cabinet_id",
+      prescriptions: "&id, cabinet_id, patient_id, invoice_id, appointment_id, _dirty",
+      invoices: "&id, cabinet_id, patient_id, status, [cabinet_id+issue_date], appointment_id, _dirty",
     });
   }
 }

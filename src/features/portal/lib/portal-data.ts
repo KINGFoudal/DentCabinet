@@ -55,7 +55,13 @@ export function normalizeItems(items: unknown): PrescriptionItem[] {
   return items
     .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null)
     .map((x) => ({
-      drug: typeof x.drug === "string" ? x.drug : undefined,
+      // Ordonnances récentes : dosage (strength) et forme dans des champs séparés.
+      drug:
+        typeof x.drug === "string"
+          ? [[x.drug, x.strength].filter((s) => typeof s === "string" && s.trim()).join(" "), typeof x.form === "string" && x.form.trim() ? x.form : ""]
+              .filter(Boolean)
+              .join(" — ")
+          : undefined,
       dosage: typeof x.dosage === "string" ? x.dosage : undefined,
       duration: typeof x.duration === "string" ? x.duration : undefined,
       instructions: typeof x.instructions === "string" ? x.instructions : undefined,

@@ -2,6 +2,17 @@
 export const messages = {
   fr: {
     billing: {
+      rx: {
+        title: "Ordonnance associée",
+        none: "Aucune ordonnance liée à cette facture.",
+        create: "Créer",
+        view: "Voir",
+        print: "Imprimer",
+        of: "Ordonnance du {date}",
+        notBilled: "Les médicaments ne sont pas facturés.",
+        consultation: "Consultation",
+        finish: "Terminer la consultation",
+      },
       title: "Facturation",
       invoice: "Facture",
       quote: "Devis",
@@ -278,6 +289,17 @@ export const messages = {
   },
   en: {
     billing: {
+      rx: {
+        title: "Linked prescription",
+        none: "No prescription linked to this invoice.",
+        create: "Create",
+        view: "View",
+        print: "Print",
+        of: "Prescription of {date}",
+        notBilled: "Medications are not billed.",
+        consultation: "Visit",
+        finish: "Finish the visit",
+      },
       title: "Billing",
       invoice: "Invoice",
       quote: "Quote",

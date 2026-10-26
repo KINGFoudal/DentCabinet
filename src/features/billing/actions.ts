@@ -28,6 +28,8 @@ export async function createInvoice(args: {
   today: string;
   dentistId?: string | null;
   quoteId?: string | null;
+  /** Rendez-vous de la consultation facturée (« Terminer la consultation »). */
+  appointmentId?: string | null;
   lines?: DocLine[];
 }) {
   const id = newId();
@@ -36,6 +38,7 @@ export async function createInvoice(args: {
     cabinet_id: args.cabinetId,
     patient_id: args.patientId,
     quote_id: args.quoteId ?? null,
+    appointment_id: args.appointmentId ?? null,
     dentist_id: args.dentistId ?? null,
     status: "draft",
     number: null,

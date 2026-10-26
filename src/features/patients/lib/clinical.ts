@@ -83,9 +83,24 @@ export function groupBySteps<T extends PlanItemLike>(items: readonly T[]): { ste
 // Ordonnances
 // ---------------------------------------------------------------------------
 
-export type RxItem = { drug: string; dosage: string; duration: string; instructions: string };
+/**
+ * Ligne d'ordonnance (élément du jsonb `prescriptions.items`).
+ * `dosage` contient la posologie (nom historique du champ, lu aussi par l'espace patient) ;
+ * `strength` est le dosage du produit (500 mg) ; `ref` la source dans la liste de médicaments.
+ */
+export type RxItem = {
+  drug: string;
+  form?: string;
+  strength?: string;
+  dosage: string;
+  duration: string;
+  instructions: string;
+  ref?: string;
+};
 
-export const emptyRxItem: RxItem = { drug: "", dosage: "", duration: "", instructions: "" };
+export const emptyRxItem: RxItem = { drug: "", form: "", strength: "", dosage: "", duration: "", instructions: "" };
+
+const str = (v: Json | undefined) => (typeof v === "string" ? v : "");
 
 /** Lit le champ jsonb `items` de façon tolérante. */
 export function parseRxItems(json: Json | null | undefined): RxItem[] {
@@ -93,10 +108,13 @@ export function parseRxItems(json: Json | null | undefined): RxItem[] {
   return json
     .filter((x): x is { [key: string]: Json | undefined } => !!x && typeof x === "object" && !Array.isArray(x))
     .map((x) => ({
-      drug: typeof x.drug === "string" ? x.drug : "",
-      dosage: typeof x.dosage === "string" ? x.dosage : "",
-      duration: typeof x.duration === "string" ? x.duration : "",
-      instructions: typeof x.instructions === "string" ? x.instructions : "",
+      drug: str(x.drug),
+      form: str(x.form),
+      strength: str(x.strength),
+      dosage: str(x.dosage),
+      duration: str(x.duration),
+      instructions: str(x.instructions),
+      ...(typeof x.ref === "string" && x.ref ? { ref: x.ref } : {}),
     }));
 }
 
@@ -105,11 +123,74 @@ export function cleanRxItems(items: readonly RxItem[]): RxItem[] {
   return items
     .map((i) => ({
       drug: i.drug.trim(),
+      form: (i.form ?? "").trim(),
+      strength: (i.strength ?? "").trim(),
       dosage: i.dosage.trim(),
       duration: i.duration.trim(),
       instructions: i.instructions.trim(),
+      ...(i.ref ? { ref: i.ref } : {}),
     }))
     .filter((i) => i.drug);
+}
+
+/** Libellé imprimé : « Amoxicilline 1 g — comprimé ». */
+export function rxDrugLabel(i: Pick<RxItem, "drug" | "form" | "strength">) {
+  const head = [i.drug, i.strength]
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  const form = (i.form ?? "").trim();
+  return form ? `${head} — ${form}` : head;
+}
+
+/** Copie des lignes d'une ordonnance précédente (dupliquer). */
+export function duplicateRxItems(json: Json | null | undefined): RxItem[] {
+  return cleanRxItems(parseRxItems(json));
+}
+
+/** Ordonnance la plus récente d'une liste (non supprimée). */
+export function latestPrescription<P extends { issued_at: string; deleted_at?: string | null }>(list: readonly P[]): P | null {
+  return list.filter((p) => !p.deleted_at).reduce<P | null>((best, p) => (!best || p.issued_at > best.issued_at ? p : best), null);
+}
+
+export type PrescriptionInput = {
+  id?: string | null;
+  cabinetId: string;
+  patientId: string;
+  dentistId: string;
+  items: readonly RxItem[];
+  notes: string;
+  shared: boolean;
+  invoiceId?: string | null;
+  appointmentId?: string | null;
+  issuedAt?: string;
+};
+
+/**
+ * Ligne `prescriptions` à écrire avec mutate(). `error: "empty"` si aucune ligne n'a de
+ * médicament. Une ordonnance existante garde son praticien, son patient et sa date.
+ */
+export function buildPrescription(input: PrescriptionInput) {
+  const items = cleanRxItems(input.items);
+  if (!items.length) return { error: "empty" as const, row: null };
+  const common = {
+    items,
+    notes: input.notes.trim() || null,
+    shared_with_patient: input.shared,
+    invoice_id: input.invoiceId ?? null,
+    appointment_id: input.appointmentId ?? null,
+  };
+  const row = input.id
+    ? { id: input.id, ...common }
+    : {
+        cabinet_id: input.cabinetId,
+        patient_id: input.patientId,
+        dentist_id: input.dentistId,
+        issued_at: input.issuedAt ?? new Date().toISOString(),
+        deleted_at: null,
+        ...common,
+      };
+  return { error: null, row };
 }
 
 // ---------------------------------------------------------------------------

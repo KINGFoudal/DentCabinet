@@ -120,14 +120,14 @@ describe("ordonnances", () => {
   it("lit le jsonb de façon tolérante et nettoie les lignes", () => {
     expect(parseRxItems(null)).toEqual([]);
     expect(parseRxItems([{ drug: "Amoxicilline", dosage: 3 }, "x", null])).toEqual([
-      { drug: "Amoxicilline", dosage: "", duration: "", instructions: "" },
+      { drug: "Amoxicilline", form: "", strength: "", dosage: "", duration: "", instructions: "" },
     ]);
     expect(
       cleanRxItems([
         { drug: " Paracétamol ", dosage: " 1 g ", duration: "", instructions: "" },
         { drug: "  ", dosage: "x", duration: "", instructions: "" },
       ]),
-    ).toEqual([{ drug: "Paracétamol", dosage: "1 g", duration: "", instructions: "" }]);
+    ).toEqual([{ drug: "Paracétamol", form: "", strength: "", dosage: "1 g", duration: "", instructions: "" }]);
   });
 });
 
