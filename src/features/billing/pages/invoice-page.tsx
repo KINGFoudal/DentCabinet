@@ -23,6 +23,7 @@ import { InstallmentsCard } from "../components/installments-card";
 import { useReportWrite } from "@/lib/sync/report-write";
 import { useMobilePaymentsAvailable } from "@/lib/payments/availability";
 import { LinkedPrescriptions } from "@/features/patients/components/linked-prescriptions";
+import { InvoiceWhatsApp } from "@/features/whatsapp/components/context-buttons";
 
 export default function InvoicePage() {
   return (
@@ -127,6 +128,7 @@ function InvoiceDetail({ view }: { view: InvoiceView }) {
               {t("billing.actions.requestMobile")}
             </Button>
           )}
+          <InvoiceWhatsApp invoice={invoice} patient={patient} figures={figures} payments={payments} installments={view.installments} />
           <Button size="sm" variant="secondary" onClick={() => window.print()}>
             <Printer className="size-4" />
             {t("common.print")}

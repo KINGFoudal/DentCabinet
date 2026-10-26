@@ -27,6 +27,7 @@ import {
   type TemplateVars,
 } from "../../../../supabase/functions/_shared/reminders";
 import { isSandboxLog, logTone } from "./reminder-status";
+import { WhatsAppSettings } from "@/features/whatsapp/components/whatsapp-settings";
 
 type Template = Row<"message_templates">;
 const KINDS = ["reminder_day_before", "reminder_same_day", "booking_confirmation"] as const;
@@ -36,7 +37,7 @@ const LOCALES = ["fr", "en"] as const;
 export function MessageSettings() {
   const { t } = useI18n();
   const { can } = useCabinet();
-  const [tab, setTab] = useState<"templates" | "log">("templates");
+  const [tab, setTab] = useState<"templates" | "whatsapp" | "log">("templates");
   return (
     <RequirePermission allowed={can.settings}>
       <PageHeader title={t("agenda.templates.title")} subtitle={t("agenda.templates.subtitle")} />
@@ -45,10 +46,11 @@ export function MessageSettings() {
         onChange={setTab}
         items={[
           { value: "templates", label: t("agenda.templates.tabs.templates") },
+          { value: "whatsapp", label: t("whatsapp.settings.tab") },
           { value: "log", label: t("agenda.templates.tabs.log") },
         ]}
       />
-      <div className="mt-4">{tab === "templates" ? <TemplatesList /> : <NotificationLog />}</div>
+      <div className="mt-4">{tab === "templates" ? <TemplatesList /> : tab === "whatsapp" ? <WhatsAppSettings /> : <NotificationLog />}</div>
     </RequirePermission>
   );
 }
@@ -64,6 +66,8 @@ function useSampleVars(locale: string): TemplateVars {
     time: t("agenda.templates.sample.time"),
     dentist_name: t("agenda.templates.sample.dentist_name"),
     cabinet_phone: formatPhone(cabinet?.phone) || "+224 620 00 00 00",
+    patient_first_name: t("agenda.templates.sample.patient_name").split(" ")[0],
+    cabinet_address: [cabinet?.address, cabinet?.city].filter(Boolean).join(", "),
   };
 }
 

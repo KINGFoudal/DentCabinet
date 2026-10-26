@@ -37,6 +37,8 @@ import {
 import { appointmentLabel, appointmentLabelLocal, useAppointmentTypes, useAvailability, useChairs, useDentists, type Appointment } from "../lib/data";
 import { changeStatus, saveAppointment } from "../lib/actions";
 import { ReminderStatus } from "./reminder-status";
+import { AppointmentWhatsApp } from "@/features/whatsapp/components/context-buttons";
+import { AppointmentCreated, appointmentHasWhatsApp } from "@/features/whatsapp/components/appointment-created";
 
 export type AppointmentDefaults = {
   starts_at?: string;
@@ -115,6 +117,8 @@ function AppointmentForm({
   const [notes, setNotes] = useState(appointment?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // RDV tout juste créé : proposer la confirmation WhatsApp au patient.
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
   // Praticien par défaut : soi-même si dentiste, sinon le premier.
   const effectiveDentist = dentistId || (dentists?.find((d) => d.id === user?.id)?.id ?? dentists?.[0]?.id ?? "");
@@ -195,6 +199,10 @@ function AppointmentForm({
         return;
       }
       toast(appointment ? t("agenda.form.saved") : t("agenda.form.created"));
+      if (!appointment && (await appointmentHasWhatsApp(res.appointment.patient_id))) {
+        setCreatedId(res.appointment.id);
+        return;
+      }
       onDone();
     } finally {
       setSaving(false);
@@ -217,6 +225,8 @@ function AppointmentForm({
     !!current?.patient_id && can.clinicalWrite && can.billingWrite && current.status !== "cancelled" && current.status !== "no_show";
   const formId = `appointment-${appointment?.id ?? "new"}`;
 
+  if (createdId) return <AppointmentCreated appointmentId={createdId} onDone={onDone} />;
+
   return (
     <div className="flex flex-col gap-4">
       {current && (
@@ -237,6 +247,7 @@ function AppointmentForm({
           {(!readOnly || canConsult) && (
             <div className="flex flex-wrap gap-2">
               {canConsult && current.patient_id && <FinishConsultationButton patientId={current.patient_id} appointmentId={current.id} />}
+              <AppointmentWhatsApp appointmentId={current.id} />
               {!readOnly &&
                 nextStatuses(current.status)
                 .sort((a, b) => Number(b === primaryNextStatus(current.status)) - Number(a === primaryNextStatus(current.status)))

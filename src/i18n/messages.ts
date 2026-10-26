@@ -6,13 +6,14 @@ import { messages as portal } from "@/features/portal/messages";
 import { messages as subscription } from "@/features/subscription/messages";
 import { messages as settings } from "@/features/settings/messages";
 import { messages as admin } from "@/features/admin/messages";
+import { messages as whatsapp } from "@/features/whatsapp/messages";
 
 export type Locale = "fr" | "en";
 export const LOCALES: Locale[] = ["fr", "en"];
 
 type Tree = { readonly [key: string]: string | Tree };
 
-const sources = [common, patients, agenda, billing, portal, subscription, settings, admin];
+const sources = [common, patients, agenda, billing, portal, subscription, settings, admin, whatsapp];
 
 function merge(locale: Locale): Tree {
   return Object.assign({}, ...sources.map((s) => s[locale] as Tree));

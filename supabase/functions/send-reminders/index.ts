@@ -10,6 +10,10 @@
  * Une ligne restée « queued » plus de 15 min (exécution interrompue) est retentée.
  * Chaque envoi est isolé : une erreur est journalisée (ligne « failed ») et la boucle continue.
  *
+ * La même exécution envoie ensuite les messages patients de la file patient_notifications
+ * (confirmation / déplacement / annulation de RDV, facture émise, paiement reçu) : voir
+ * ./patient-notifications.ts.
+ *
  * Sans clés WhatsApp / email :
  *   - MESSAGING_MODE=sandbox (local) : rien n'est envoyé ; la ligne est écrite avec
  *     status « sent », provider_message_id « sandbox-… » et error « sandbox: non envoyé … » ;
@@ -24,6 +28,8 @@ import { emailConfig, messagingSandbox, SANDBOX_NOTE, SEND_TIMEOUT_MS, sendEmail
 import { chunks, inList, Rest } from "../_shared/rest.ts";
 // @ts-expect-error -- idem
 import { secretsEqual } from "../_shared/secrets.ts";
+// @ts-expect-error -- idem
+import { runPatientNotifications } from "./patient-notifications.ts";
 
 type DenoLike = {
   env: { get(key: string): string | undefined };
@@ -90,6 +96,20 @@ async function run(req: Request) {
   if (Number.isNaN(now.getTime())) return json({ error: "invalid now" }, 400);
 
   const rest = new Rest(env("SUPABASE_URL")!, env("SUPABASE_SERVICE_ROLE_KEY")!);
+  // Rappels avant RDV, puis messages patients (confirmation, déplacement, facture...) :
+  // une erreur dans l'un n'empêche pas l'autre.
+  const reminders = await runReminders(rest, now, !!input.dry_run).catch((e: unknown) => {
+    console.error("send-reminders: reminders", errorMessage(e));
+    return { error: "reminders failed" };
+  });
+  const patient_notifications = await runPatientNotifications(rest, now, env, !!input.dry_run).catch((e: unknown) => {
+    console.error("send-reminders: patient notifications", errorMessage(e));
+    return { error: "patient notifications failed" };
+  });
+  return json({ ...reminders, patient_notifications });
+}
+
+async function runReminders(rest: Rest, now: Date, dryRun: boolean): Promise<Record<string, unknown>> {
   const [from, to] = candidateRange(now);
 
   const appointments = await rest.selectAll<ReminderAppointment>(
@@ -97,11 +117,11 @@ async function run(req: Request) {
       `&starts_at=gte.${encodeURIComponent(from.toISOString())}&starts_at=lt.${encodeURIComponent(to.toISOString())}` +
       `&status=in.(scheduled,confirmed)&deleted_at=is.null&patient_id=not.is.null&order=starts_at,id`,
   );
-  if (!appointments.length) return json({ checked: 0, sent: 0, failed: 0, skipped: 0 });
+  if (!appointments.length) return { checked: 0, sent: 0, failed: 0, skipped: 0 };
 
   const cabinetIds = [...new Set(appointments.map((a) => a.cabinet_id))];
   const [cabinetRows, patients, templates, logs, memberships] = await Promise.all([
-    loadAll<CabinetRow>(rest, "cabinets", "id,name,phone,timezone,locale,subscription_status,trial_ends_at", "id", cabinetIds),
+    loadAll<CabinetRow>(rest, "cabinets", "id,name,phone,address,city,timezone,locale,subscription_status,trial_ends_at", "id", cabinetIds),
     loadAll<ReminderPatient>(
       rest,
       "patients",
@@ -152,7 +172,7 @@ async function run(req: Request) {
     logs,
     dentistNames,
   });
-  if (input.dry_run) return json({ checked: appointments.length, jobs });
+  if (dryRun) return { checked: appointments.length, jobs };
 
   const sandbox = messagingSandbox(env);
   const wa = whatsappConfig(env);
@@ -262,7 +282,7 @@ async function run(req: Request) {
     }
   }
 
-  return json({
+  return {
     checked: appointments.length,
     sent,
     simulated,
@@ -270,5 +290,5 @@ async function run(req: Request) {
     skipped,
     sandbox,
     configured: { whatsapp: !!wa, email: !!mail },
-  });
+  };
 }

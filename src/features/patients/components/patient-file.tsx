@@ -17,6 +17,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { PatientAppointments } from "@/features/agenda/components/patient-appointments";
 import { PatientBilling } from "@/features/billing/components/patient-billing";
+import { PatientWhatsApp } from "@/features/whatsapp/components/context-buttons";
 import { usePatient, usePatientMedical } from "../lib/hooks";
 import { Avatar } from "./avatar";
 import { FinishConsultationButton } from "./consultation";
@@ -157,6 +158,7 @@ function PatientFileView({ id, initialTab }: { id: string | null; initialTab: Pa
         </div>
         <div className="no-print flex flex-wrap gap-2">
           {!archived && <FinishConsultationButton patientId={patient.id} />}
+          {!archived && <PatientWhatsApp patient={patient} />}
           {can.patientsWrite && !archived && (
             <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
               <Pencil className="size-4" />

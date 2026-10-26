@@ -143,14 +143,14 @@ isOneToOne: false
                   ]
                 },"cabinets": {
                   Row: {
-                    "address": string | null,"billing_cycle": Database["public"]['Enums']["billing_cycle"],"city": string | null,"country": string,"created_at": string,"currency": string,"current_period_end": string | null,"email": string | null,"id": string,"locale": string,"logo_path": string | null,"name": string,"online_booking_enabled": boolean,"online_cancel_min_hours": number,"opening_hours": NonNullable<Json>,"phone": string | null,"plan_id": string | null,"public_description": string | null,"public_page_enabled": boolean,"slug": string,"subscription_status": Database["public"]['Enums']["subscription_status"],"timezone": string,"trial_ends_at": string | null,"updated_at": string
+                    "address": string | null,"billing_cycle": Database["public"]['Enums']["billing_cycle"],"city": string | null,"country": string,"created_at": string,"currency": string,"current_period_end": string | null,"email": string | null,"id": string,"locale": string,"logo_path": string | null,"name": string,"notify_appointment_changed": boolean,"notify_appointment_created": boolean,"notify_invoice_issued": boolean,"notify_payment_received": boolean,"online_booking_enabled": boolean,"online_cancel_min_hours": number,"opening_hours": NonNullable<Json>,"phone": string | null,"plan_id": string | null,"public_description": string | null,"public_page_enabled": boolean,"slug": string,"subscription_status": Database["public"]['Enums']["subscription_status"],"timezone": string,"trial_ends_at": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "address"?: string | null,"billing_cycle"?: Database["public"]['Enums']["billing_cycle"],"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"current_period_end"?: string | null,"email"?: string | null,"id"?: string,"locale"?: string,"logo_path"?: string | null,"name": string,"online_booking_enabled"?: boolean,"online_cancel_min_hours"?: number,"opening_hours"?: NonNullable<Json>,"phone"?: string | null,"plan_id"?: string | null,"public_description"?: string | null,"public_page_enabled"?: boolean,"slug": string,"subscription_status"?: Database["public"]['Enums']["subscription_status"],"timezone"?: string,"trial_ends_at"?: string | null,"updated_at"?: string
+                    "address"?: string | null,"billing_cycle"?: Database["public"]['Enums']["billing_cycle"],"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"current_period_end"?: string | null,"email"?: string | null,"id"?: string,"locale"?: string,"logo_path"?: string | null,"name": string,"notify_appointment_changed"?: boolean,"notify_appointment_created"?: boolean,"notify_invoice_issued"?: boolean,"notify_payment_received"?: boolean,"online_booking_enabled"?: boolean,"online_cancel_min_hours"?: number,"opening_hours"?: NonNullable<Json>,"phone"?: string | null,"plan_id"?: string | null,"public_description"?: string | null,"public_page_enabled"?: boolean,"slug": string,"subscription_status"?: Database["public"]['Enums']["subscription_status"],"timezone"?: string,"trial_ends_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "address"?: string | null,"billing_cycle"?: Database["public"]['Enums']["billing_cycle"],"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"current_period_end"?: string | null,"email"?: string | null,"id"?: string,"locale"?: string,"logo_path"?: string | null,"name"?: string,"online_booking_enabled"?: boolean,"online_cancel_min_hours"?: number,"opening_hours"?: NonNullable<Json>,"phone"?: string | null,"plan_id"?: string | null,"public_description"?: string | null,"public_page_enabled"?: boolean,"slug"?: string,"subscription_status"?: Database["public"]['Enums']["subscription_status"],"timezone"?: string,"trial_ends_at"?: string | null,"updated_at"?: string
+                    "address"?: string | null,"billing_cycle"?: Database["public"]['Enums']["billing_cycle"],"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"current_period_end"?: string | null,"email"?: string | null,"id"?: string,"locale"?: string,"logo_path"?: string | null,"name"?: string,"notify_appointment_changed"?: boolean,"notify_appointment_created"?: boolean,"notify_invoice_issued"?: boolean,"notify_payment_received"?: boolean,"online_booking_enabled"?: boolean,"online_cancel_min_hours"?: number,"opening_hours"?: NonNullable<Json>,"phone"?: string | null,"plan_id"?: string | null,"public_description"?: string | null,"public_page_enabled"?: boolean,"slug"?: string,"subscription_status"?: Database["public"]['Enums']["subscription_status"],"timezone"?: string,"trial_ends_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -451,6 +451,50 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "patients"
       referencedColumns: ["id","cabinet_id"]
+    }
+                  ]
+                },"patient_notifications": {
+                  Row: {
+                    "appointment_id": string | null,"attempts": number,"body": string | null,"cabinet_id": string,"channel": Database["public"]['Enums']["message_channel"],"created_at": string,"deleted_at": string | null,"error": string | null,"event": string,"event_key": string,"id": string,"invoice_id": string | null,"patient_id": string,"payment_id": string | null,"provider_message_id": string | null,"recipient": string | null,"ref_starts_at": string | null,"sent_at": string | null,"status": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "appointment_id"?: string | null,"attempts"?: number,"body"?: string | null,"cabinet_id": string,"channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"deleted_at"?: string | null,"error"?: string | null,"event": string,"event_key": string,"id"?: string,"invoice_id"?: string | null,"patient_id": string,"payment_id"?: string | null,"provider_message_id"?: string | null,"recipient"?: string | null,"ref_starts_at"?: string | null,"sent_at"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "appointment_id"?: string | null,"attempts"?: number,"body"?: string | null,"cabinet_id"?: string,"channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"deleted_at"?: string | null,"error"?: string | null,"event"?: string,"event_key"?: string,"id"?: string,"invoice_id"?: string | null,"patient_id"?: string,"payment_id"?: string | null,"provider_message_id"?: string | null,"recipient"?: string | null,"ref_starts_at"?: string | null,"sent_at"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "patient_notifications_appointment_id_cabinet_id_fkey"
+      columns: ["appointment_id","cabinet_id"]
+isOneToOne: false
+      referencedRelation: "appointments"
+      referencedColumns: ["id","cabinet_id"]
+    },{
+      foreignKeyName: "patient_notifications_cabinet_id_fkey"
+      columns: ["cabinet_id"]
+isOneToOne: false
+      referencedRelation: "cabinets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "patient_notifications_invoice_id_cabinet_id_fkey"
+      columns: ["invoice_id","cabinet_id"]
+isOneToOne: false
+      referencedRelation: "invoices"
+      referencedColumns: ["id","cabinet_id"]
+    },{
+      foreignKeyName: "patient_notifications_patient_id_cabinet_id_fkey"
+      columns: ["patient_id","cabinet_id"]
+isOneToOne: false
+      referencedRelation: "patients"
+      referencedColumns: ["id","cabinet_id"]
+    },{
+      foreignKeyName: "patient_notifications_payment_id_fkey"
+      columns: ["payment_id"]
+isOneToOne: false
+      referencedRelation: "payments"
+      referencedColumns: ["id"]
     }
                   ]
                 },"patients": {
@@ -931,7 +975,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "admin"|"dentist"|"assistant"|"accountant","appointment_source": "staff"|"online","appointment_status": "scheduled"|"confirmed"|"arrived"|"in_treatment"|"done"|"cancelled"|"no_show","billing_cycle": "monthly"|"yearly","document_kind": "xray"|"photo"|"prescription"|"scan"|"consent"|"administrative"|"other","invoice_status": "draft"|"issued"|"partially_paid"|"paid"|"cancelled","message_channel": "whatsapp"|"email"|"sms","message_kind": "reminder_day_before"|"reminder_same_day"|"booking_confirmation"|"otp","message_status": "queued"|"sent"|"delivered"|"read"|"failed","payment_method": "cash"|"orange_money"|"mtn_momo"|"transfer"|"other","payment_provider": "orange_money"|"mtn_momo","payment_purpose": "invoice"|"subscription","payment_status": "pending"|"succeeded"|"failed"|"expired"|"refunded","plan_item_status": "planned"|"done"|"cancelled","plan_status": "draft"|"proposed"|"accepted"|"in_progress"|"completed"|"cancelled","quote_status": "draft"|"sent"|"accepted"|"refused"|"expired","sex": "female"|"male"|"other","subscription_status": "trialing"|"active"|"past_due"|"expired"|"cancelled","tooth_status": "healthy"|"caries"|"filled"|"crown"|"missing"|"extracted"|"implant"|"root_canal"|"bridge"|"fractured"|"to_extract"|"other"
+            "app_role": "admin"|"dentist"|"assistant"|"accountant","appointment_source": "staff"|"online","appointment_status": "scheduled"|"confirmed"|"arrived"|"in_treatment"|"done"|"cancelled"|"no_show","billing_cycle": "monthly"|"yearly","document_kind": "xray"|"photo"|"prescription"|"scan"|"consent"|"administrative"|"other","invoice_status": "draft"|"issued"|"partially_paid"|"paid"|"cancelled","message_channel": "whatsapp"|"email"|"sms","message_kind": "reminder_day_before"|"reminder_same_day"|"booking_confirmation"|"otp"|"appointment_moved"|"appointment_cancelled"|"appointment_missed"|"dentist_late"|"invoice_issued"|"payment_reminder"|"payment_received"|"installment_due"|"checkup_reminder","message_status": "queued"|"sent"|"delivered"|"read"|"failed","payment_method": "cash"|"orange_money"|"mtn_momo"|"transfer"|"other","payment_provider": "orange_money"|"mtn_momo","payment_purpose": "invoice"|"subscription","payment_status": "pending"|"succeeded"|"failed"|"expired"|"refunded","plan_item_status": "planned"|"done"|"cancelled","plan_status": "draft"|"proposed"|"accepted"|"in_progress"|"completed"|"cancelled","quote_status": "draft"|"sent"|"accepted"|"refused"|"expired","sex": "female"|"male"|"other","subscription_status": "trialing"|"active"|"past_due"|"expired"|"cancelled","tooth_status": "healthy"|"caries"|"filled"|"crown"|"missing"|"extracted"|"implant"|"root_canal"|"bridge"|"fractured"|"to_extract"|"other"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1051,7 +1095,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "app_role": ["admin", "dentist", "assistant", "accountant"],"appointment_source": ["staff", "online"],"appointment_status": ["scheduled", "confirmed", "arrived", "in_treatment", "done", "cancelled", "no_show"],"billing_cycle": ["monthly", "yearly"],"document_kind": ["xray", "photo", "prescription", "scan", "consent", "administrative", "other"],"invoice_status": ["draft", "issued", "partially_paid", "paid", "cancelled"],"message_channel": ["whatsapp", "email", "sms"],"message_kind": ["reminder_day_before", "reminder_same_day", "booking_confirmation", "otp"],"message_status": ["queued", "sent", "delivered", "read", "failed"],"payment_method": ["cash", "orange_money", "mtn_momo", "transfer", "other"],"payment_provider": ["orange_money", "mtn_momo"],"payment_purpose": ["invoice", "subscription"],"payment_status": ["pending", "succeeded", "failed", "expired", "refunded"],"plan_item_status": ["planned", "done", "cancelled"],"plan_status": ["draft", "proposed", "accepted", "in_progress", "completed", "cancelled"],"quote_status": ["draft", "sent", "accepted", "refused", "expired"],"sex": ["female", "male", "other"],"subscription_status": ["trialing", "active", "past_due", "expired", "cancelled"],"tooth_status": ["healthy", "caries", "filled", "crown", "missing", "extracted", "implant", "root_canal", "bridge", "fractured", "to_extract", "other"]
+            "app_role": ["admin", "dentist", "assistant", "accountant"],"appointment_source": ["staff", "online"],"appointment_status": ["scheduled", "confirmed", "arrived", "in_treatment", "done", "cancelled", "no_show"],"billing_cycle": ["monthly", "yearly"],"document_kind": ["xray", "photo", "prescription", "scan", "consent", "administrative", "other"],"invoice_status": ["draft", "issued", "partially_paid", "paid", "cancelled"],"message_channel": ["whatsapp", "email", "sms"],"message_kind": ["reminder_day_before", "reminder_same_day", "booking_confirmation", "otp", "appointment_moved", "appointment_cancelled", "appointment_missed", "dentist_late", "invoice_issued", "payment_reminder", "payment_received", "installment_due", "checkup_reminder"],"message_status": ["queued", "sent", "delivered", "read", "failed"],"payment_method": ["cash", "orange_money", "mtn_momo", "transfer", "other"],"payment_provider": ["orange_money", "mtn_momo"],"payment_purpose": ["invoice", "subscription"],"payment_status": ["pending", "succeeded", "failed", "expired", "refunded"],"plan_item_status": ["planned", "done", "cancelled"],"plan_status": ["draft", "proposed", "accepted", "in_progress", "completed", "cancelled"],"quote_status": ["draft", "sent", "accepted", "refused", "expired"],"sex": ["female", "male", "other"],"subscription_status": ["trialing", "active", "past_due", "expired", "cancelled"],"tooth_status": ["healthy", "caries", "filled", "crown", "missing", "extracted", "implant", "root_canal", "bridge", "fractured", "to_extract", "other"]
           }
         }
 } as const

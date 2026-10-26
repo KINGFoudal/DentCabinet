@@ -24,7 +24,7 @@ npm install
 ```bash
 npx supabase login                                   # ouvre le navigateur pour vous connecter
 npx supabase link --project-ref kxzqyexqwcuufacmzmbg # demande le mot de passe de la base
-npx supabase db push                                 # applique les 7 migrations de supabase/migrations
+npx supabase db push                                 # applique les migrations de supabase/migrations
 ```
 
 Le mot de passe de la base se trouve (ou se réinitialise) dans Supabase > projet nimba-dentaire > **Project Settings > Database**.
@@ -104,6 +104,32 @@ npx supabase secrets set RESEND_API_KEY=... EMAIL_FROM='Nimba Dentaire <rappels@
 ```
 
 Les deux modèles WhatsApp doivent d'abord être créés et approuvés dans Meta Business : `nimba_rappel_rdv` (catégorie Utilitaire, une variable `{{1}}`) et `nimba_code_connexion` (catégorie Authentification, bouton « copier le code »).
+
+### 3 bis. Messages WhatsApp aux patients (confirmation de RDV, facture...)
+
+Destinataire : **toujours le patient** (téléphone de sa fiche), jamais un membre du cabinet. Rien n'est envoyé si le patient n'a pas de téléphone valide, a refusé WhatsApp (case de sa fiche), si le numéro est celui du cabinet ou d'un membre de l'équipe, ou si le RDV / la facture a été supprimé ou annulé avant l'envoi.
+
+**Envoi manuel, gratuit, dès aujourd'hui** (aucune clé Meta) : bouton « Envoyer par WhatsApp » sur le RDV (et juste après sa création : « Confirmer au patient par WhatsApp »), sur la facture émise et sur la fiche patient. Il propose les messages adaptés (confirmation, rappel, RDV déplacé / annulé, absence, retard ; facture émise, rappel de paiement, paiement reçu, échéance ; rappel de contrôle, message libre), montre le texte modifiable, puis ouvre `https://wa.me/224…?text=…` : l'assistante appuie sur « Envoyer » dans WhatsApp.
+
+**Envoi automatique** (quand les clés WhatsApp ci-dessus sont en place) : la base met le message en file à l'arrivée de la ligne synchronisée (RDV créé, déplacé, annulé ; facture passée de brouillon à émise ; paiement encaissé) et la fonction `send-reminders` (la même tâche planifiée toutes les 15 minutes) l'envoie : un seul message par événement, 3 tentatives au maximum, abandon après 24 h. Réglages par cabinet dans **Paramètres > Messages > WhatsApp patients** : confirmation de RDV et RDV déplacé / annulé activés par défaut ; facture émise et paiement reçu désactivés par défaut (montants envoyés sur le téléphone de la fiche). Le journal des envois automatiques est dans le même onglet.
+
+Les textes sont ceux des **modèles du cabinet** (même onglet, personnalisables, bouton « Rétablir le texte par défaut »), pour l'envoi manuel comme automatique. Pour l'envoi automatique, Meta n'accepte qu'un modèle approuvé : chaque modèle ci-dessous encadre le texte du cabinet, transmis dans la variable `{{1}}` (sur une seule ligne). Après la commande `npx supabase functions deploy send-reminders` (rien d'autre à déployer), créer dans **Meta Business > WhatsApp Manager > Modèles de message** les 4 modèles suivants, catégorie **Utilitaire**, chacun en **français (fr)** et en **anglais (en)** si un cabinet travaille en anglais :
+
+| Nom du modèle | Variable d'environnement (facultative) | Corps en français | Corps en anglais |
+|---|---|---|---|
+| `nimba_rdv_confirme` | `WHATSAPP_APPOINTMENT_TEMPLATE` | `Confirmation de votre rendez-vous :` ⏎⏎ `{{1}}` ⏎⏎ `Message envoyé par votre cabinet dentaire avec Nimba Dentaire.` | `Your appointment confirmation:` ⏎⏎ `{{1}}` ⏎⏎ `Message sent by your dental practice with Nimba Dentaire.` |
+| `nimba_rdv_modifie` (déplacement et annulation) | `WHATSAPP_APPOINTMENT_CHANGE_TEMPLATE` | `Information sur votre rendez-vous :` ⏎⏎ `{{1}}` ⏎⏎ `Message envoyé par votre cabinet dentaire avec Nimba Dentaire.` | `Update about your appointment:` ⏎⏎ `{{1}}` ⏎⏎ `Message sent by your dental practice with Nimba Dentaire.` |
+| `nimba_facture_emise` | `WHATSAPP_INVOICE_TEMPLATE` | `Votre facture :` ⏎⏎ `{{1}}` ⏎⏎ `Message envoyé par votre cabinet dentaire avec Nimba Dentaire.` | `Your invoice:` ⏎⏎ `{{1}}` ⏎⏎ `Message sent by your dental practice with Nimba Dentaire.` |
+| `nimba_paiement_recu` | `WHATSAPP_PAYMENT_TEMPLATE` | `Confirmation de paiement :` ⏎⏎ `{{1}}` ⏎⏎ `Message envoyé par votre cabinet dentaire avec Nimba Dentaire.` | `Payment confirmation:` ⏎⏎ `{{1}}` ⏎⏎ `Message sent by your dental practice with Nimba Dentaire.` |
+
+(⏎ = retour à la ligne.) Exemples de valeur de `{{1}}` à fournir à Meta lors de la demande :
+
+- confirmation : `Bonjour Mariama, Votre rendez-vous chez Cabinet Dentaire Kaloum est confirmé le jeudi 12 novembre 2026 à 09:30. Praticien : Dr Camara Adresse : Rue KA-020, Conakry Pour modifier ou annuler : +224 620 00 00 01 À bientôt !`
+- modification : `Bonjour Mariama, Votre rendez-vous chez Cabinet Dentaire Kaloum a été déplacé au vendredi 13 novembre 2026 à 10:00. Si ce créneau ne vous convient pas : +224 620 00 00 01`
+- facture : `Bonjour Mariama, Voici votre facture F-2026-00012 de Cabinet Dentaire Kaloum. Montant total : 450 000 GNF Reste à payer : 300 000 GNF Paiement : espèces au cabinet, Orange Money ou MTN Mobile Money. Merci de votre confiance.`
+- paiement : `Bonjour Mariama, Cabinet Dentaire Kaloum a bien reçu votre paiement de 150 000 GNF pour la facture F-2026-00012. Reste à payer : 300 000 GNF Merci de votre confiance.`
+
+Les noms ci-dessus sont utilisés par défaut ; ne définir les variables d'environnement que si vous choisissez d'autres noms, par exemple `npx supabase secrets set WHATSAPP_INVOICE_TEMPLATE=autre_nom`. Si Meta refuse un modèle (texte jugé trop variable), proposer le même modèle avec une phrase fixe plus longue autour de `{{1}}`, sans changer la variable. Tant que ces modèles et les clés ne sont pas en place, les messages automatiques passent en « Échec » (« whatsapp not configured ») après 3 tentatives : l'envoi manuel reste disponible.
 
 ## 4. Rappels automatiques (planification)
 

@@ -3,6 +3,9 @@
  * Edge Functions et l'interface (aperçu des modèles), testée avec vitest.
  */
 
+// @ts-expect-error -- Deno exige l'extension .ts dans les imports relatifs.
+import { cabinetAddress, renderPatientMessage } from "./patient-messages.ts";
+
 export type ReminderKind = "reminder_day_before" | "reminder_same_day";
 export type MessageKind = ReminderKind | "booking_confirmation" | "otp";
 export type Channel = "whatsapp" | "email" | "sms";
@@ -15,6 +18,8 @@ export const TEMPLATE_VARIABLES = [
   "time",
   "dentist_name",
   "cabinet_phone",
+  "patient_first_name",
+  "cabinet_address",
 ] as const;
 export type TemplateVariable = (typeof TEMPLATE_VARIABLES)[number];
 export type TemplateVars = Partial<Record<TemplateVariable, string>>;
@@ -151,6 +156,8 @@ export type ReminderCabinet = {
   phone: string | null;
   timezone: string;
   locale: string;
+  address?: string | null;
+  city?: string | null;
 };
 export type ReminderTemplate = {
   cabinet_id: string;
@@ -271,6 +278,8 @@ export function selectReminders(input: {
       time: formatHour(startsAt, locale, tz),
       dentist_name: input.dentistNames[a.dentist_id] ?? "",
       cabinet_phone: cabinet.phone ?? "",
+      patient_first_name: patient.first_name.trim() || patientDisplayName(patient),
+      cabinet_address: cabinetAddress(cabinet),
     };
 
     const channels: { channel: "whatsapp" | "email"; recipient: string | null }[] = [
@@ -292,7 +301,11 @@ export function selectReminders(input: {
         recipient,
         locale: tpl.locale,
         subject: tpl.subject ? renderTemplate(tpl.subject, vars) : null,
-        body: renderTemplate(tpl.body, vars),
+        // WhatsApp : même rendu que les messages patients (ligne à variable vide retirée).
+        body:
+          channel === "whatsapp"
+            ? renderPatientMessage(tpl.body, vars)
+            : renderTemplate(tpl.body, vars),
         vars,
         retry: existing
           ? { id: existing.id, attempts: existing.attempts, status: existing.status, updated_at: existing.updated_at ?? null }
