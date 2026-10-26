@@ -102,6 +102,8 @@ select vault.create_secret('<même valeur que REMINDERS_CRON_SECRET>', 'reminder
    - ou, dans Vercel > **Settings > Git > Production Branch**, mettre `nimba-v1`.
 7. Revenir à l'étape 2.1 si l'adresse finale diffère de `nimba-dentaire.vercel.app`.
 
+> Vercel : le projet de production est `nimba-dentaire` (équipe « kingfoudal's projects »), branche de production `nimba-v1`. Chaque push sur cette branche redéploie le site.
+
 ## 6. Premier administrateur de la plateforme
 
 1. Ouvrir le site, **Créer un compte** avec votre email, confirmer l'email, se connecter, créer votre cabinet (ou non).
